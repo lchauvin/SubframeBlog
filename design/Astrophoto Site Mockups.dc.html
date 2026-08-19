@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/industry-62e589b8-7d0e-4760-9194-5da08cd55736/styles.css">
+<script src="_ds/industry-62e589b8-7d0e-4760-9194-5da08cd55736/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:var(--color-neutral-200);font-family:var(--font-body)}
+a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:var(--color-neutral-900);color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 var(--font-body);color:var(--color-neutral-900)}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:var(--color-neutral-900);border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 var(--font-body);color:rgba(0,0,0,.55)}
+.dv-card{max-width:100%;background:var(--color-bg);border:1px solid rgba(0,0,0,.14);box-shadow:var(--shadow-md);overflow:hidden}
+.dv-opt:target .dv-oid{background:var(--color-accent);color:#fff}
+.dv-next{margin:22px 0 0;font:12px/1.5 var(--font-body);color:rgba(0,0,0,.5)}
+.mk{position:absolute;font:400 11px/1 ui-monospace,Menlo,monospace;color:var(--color-accent)}
+.mk-tl{top:-6px;left:-5px}.mk-tr{top:-6px;right:-5px}.mk-bl{bottom:-5px;left:-5px}.mk-br{bottom:-5px;right:-5px}
+</style></helmet>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Three calmer galleries, replacing the mosaic in <a class="dv-oid" href="#1b">1b</a></span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Plate index — uniform cells, spec caption under each</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="gallery" hint-size="100%,62px"></dc-import>
+<div style="padding:30px 34px 40px">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid rgba(29,31,32,.24);margin-bottom:26px">
+    <div>
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 6px">Index · 41 frames · 612h integration</p>
+      <h1 style="font-family:var(--font-heading);font-weight:600;font-size:40px;line-height:1;margin:0;color:var(--color-text)">Gallery</h1>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span style="border:1px solid rgba(29,31,32,.24);color:var(--color-neutral-800);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px">Newest</span>
+      <span style="background:var(--color-accent);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px">Integration ↓</span>
+      <span style="border:1px solid rgba(29,31,32,.24);color:var(--color-neutral-800);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px">Object class</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:30px 26px">
+    <sc-for list="{{ cat }}" as="c" hint-placeholder-count="6">
+      <a href="#1c" style="text-decoration:none;display:block">
+        <div style="position:relative;border:1px solid rgba(29,31,32,.2);padding:6px;background:#0c0e11">
+          <i class="mk mk-tl">+</i><i class="mk mk-tr">+</i><i class="mk mk-bl">+</i><i class="mk mk-br">+</i>
+          <img src="{{ c.src }}" alt="{{ c.id }}" style="display:block;width:100%;height:222px;object-fit:cover">
+        </div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:12px">
+          <p style="font-family:var(--font-heading);font-weight:600;font-size:26px;line-height:1;letter-spacing:.03em;text-transform:uppercase;color:var(--color-text);margin:0">{{ c.id }}</p>
+          <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent);margin:0">{{ c.pal }}</p>
+        </div>
+        <p style="font-family:var(--font-body);font-size:14.5px;color:var(--color-neutral-600);margin:2px 0 6px">{{ c.sub }}</p>
+        <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500);margin:0;padding-top:7px;border-top:1px solid rgba(29,31,32,.12)">{{ c.meta }}</p>
+      </a>
+    </sc-for>
+    <a href="#1c" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(29,31,32,.2);min-height:222px;gap:8px">
+      <span style="font-family:var(--font-heading);font-size:34px;color:var(--color-accent);line-height:1">+36</span>
+      <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Earlier frames</span>
+    </a>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Editorial scroll — one target per row, image reads big</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="gallery" hint-size="100%,62px"></dc-import>
+<div style="padding:34px 40px 44px">
+  <h1 style="font-family:var(--font-heading);font-weight:600;font-size:44px;line-height:1;margin:0 0 4px;color:var(--color-text)">The log</h1>
+  <p style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-neutral-600);margin:0 0 30px">Newest first · 41 frames · 2021–2026</p>
+  <sc-for list="{{ cat }}" as="c" hint-placeholder-count="3">
+    <a href="#1c" style="text-decoration:none;display:grid;grid-template-columns:1fr 300px;gap:34px;align-items:start;padding:0 0 34px;margin-bottom:34px;border-bottom:1px solid var(--color-divider)">
+      <div style="position:relative;border:1px solid rgba(29,31,32,.2);padding:6px;background:#0c0e11">
+        <i class="mk mk-tl">+</i><i class="mk mk-tr">+</i><i class="mk mk-bl">+</i><i class="mk mk-br">+</i>
+        <img src="{{ c.src }}" alt="{{ c.id }}" style="display:block;width:100%;height:372px;object-fit:cover">
+      </div>
+      <div style="padding-top:2px">
+        <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 8px">{{ c.date }} · {{ c.pal }}</p>
+        <h2 style="font-family:var(--font-heading);font-weight:600;font-size:38px;line-height:.98;margin:0 0 2px;color:var(--color-text)">{{ c.id }}</h2>
+        <p style="font-family:var(--font-heading);font-size:22px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-neutral-600);margin:0 0 14px">{{ c.sub }}</p>
+        <p style="font-size:15.5px;line-height:1.58;color:var(--color-neutral-800);margin:0 0 16px;text-wrap:pretty">{{ c.blurb }}</p>
+        <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 16px;padding-top:12px;border-top:1px solid rgba(29,31,32,.12)">{{ c.meta }}</p>
+        <span style="display:inline-block;border:1px solid rgba(29,31,32,.3);color:var(--color-text);font-family:var(--font-heading);font-size:14px;letter-spacing:.14em;text-transform:uppercase;padding:8px 16px">Acquisition &amp; processing</span>
+      </div>
+    </a>
+  </sc-for>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2c">
+<div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>By object class — labelled shelves, each scrolls sideways</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="gallery" hint-size="100%,62px"></dc-import>
+<div style="padding:28px 0 40px">
+  <div style="padding:0 34px 22px">
+    <h1 style="font-family:var(--font-heading);font-weight:600;font-size:40px;line-height:1;margin:0 0 4px;color:var(--color-text)">Catalogue</h1>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-neutral-600);margin:0">Grouped by object class · 41 frames</p>
+  </div>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+    <div style="border-top:1px solid var(--color-divider);padding:18px 0 26px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 34px 14px">
+        <h2 style="font-family:var(--font-heading);font-weight:600;font-size:27px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text);margin:0">{{ g.k }}</h2>
+        <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent)">{{ g.n }} →</span>
+      </div>
+      <div style="display:flex;gap:18px;padding:0 34px;overflow-x:auto">
+        <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="4">
+          <a href="#1c" style="text-decoration:none;flex:none;width:288px">
+            <div style="border:1px solid rgba(29,31,32,.2);padding:5px;background:#0c0e11"><img src="{{ c.src }}" alt="{{ c.id }}" style="display:block;width:100%;height:164px;object-fit:cover"></div>
+            <p style="font-family:var(--font-heading);font-size:22px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text);margin:9px 0 2px">{{ c.id }}</p>
+            <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin:0">{{ c.meta }}</p>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "<a class="dv-oid" href="#2a">2a</a> but four across" · "put <a class="dv-oid" href="#2b">2b</a>'s rows on a dark ground" · "keep <a class="dv-oid" href="#2c">2c</a>, drop the sideways scroll"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Subframe — Industry system, steel on paper. Screens + three article directions.</span></div>
+
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Home — one featured target, latest log below</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="gallery" hint-size="100%,62px"></dc-import>
+<div style="padding:34px 28px 0">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent)">Latest / Frame no. 041</span>
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-neutral-600)">2026 · 09 nights · 20h30 integration</span>
+  </div>
+  <div style="position:relative">
+    <i class="mk mk-tl">+</i><i class="mk mk-tr">+</i><i class="mk mk-bl">+</i><i class="mk mk-br">+</i>
+    <div style="border:1px solid var(--color-divider);padding:5px;background:#0c0e11">
+      <img src="img/sh2-114.jpg" alt="Sh2-114" style="display:block;width:100%;height:452px;object-fit:cover">
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 348px;gap:44px;padding:26px 0 34px;align-items:start">
+    <div>
+      <h1 style="font-family:var(--font-heading);font-weight:600;font-size:54px;line-height:.98;margin:0 0 6px;color:var(--color-text);letter-spacing:-.005em">Sh2-114 — The Flying Dragon</h1>
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:0 0 18px">Emission nebula · Cygnus · RA 21h 22m · Dec +38° 42′ · mag 12.5</p>
+      <p style="font-size:16.5px;line-height:1.62;color:var(--color-neutral-800);margin:0 0 14px;text-wrap:pretty;max-width:62ch">A thin, forgotten ribbon of ionised hydrogen on the Cygnus–Lacerta border — most likely an old supernova remnant, and faint enough that from a Bortle 9 balcony it exists only as a statistic until about the fourth hour of narrowband data.</p>
+      <p style="font-size:16.5px;line-height:1.62;color:var(--color-neutral-800);margin:0 0 22px;text-wrap:pretty;max-width:62ch">Nine nights between the neighbours' floodlights, 3nm filters, and a fairly aggressive gradient model. Full acquisition and processing notes in the article.</p>
+      <div style="display:flex;gap:12px">
+        <span style="position:relative;display:inline-flex"><i class="mk mk-tl" style="color:var(--color-bg)">+</i><i class="mk mk-br" style="color:var(--color-bg)">+</i>
+          <a href="#1c" style="display:inline-block;background:var(--color-accent);color:var(--color-bg);text-decoration:none;padding:11px 20px;font-family:var(--font-heading);font-size:15px;letter-spacing:.14em;text-transform:uppercase">Read the article</a></span>
+        <a href="#1f" style="display:inline-block;border:1px solid rgba(29,31,32,.3);color:var(--color-text);text-decoration:none;padding:11px 20px;font-family:var(--font-heading);font-size:15px;letter-spacing:.14em;text-transform:uppercase">Full resolution</a>
+      </div>
+    </div>
+    <div style="position:relative;border:1px solid var(--color-divider);padding:20px 18px">
+      <i class="mk mk-tl">+</i><i class="mk mk-tr">+</i><i class="mk mk-bl">+</i><i class="mk mk-br">+</i>
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 14px">Acquisition summary</p>
+      <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:11px">
+          <div style="display:flex;justify-content:space-between;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800)"><span>{{ f.name }}</span><span>{{ f.hours }}</span></div>
+          <div style="display:flex;height:7px;background:rgba(29,31,32,.08)">
+            <span style="display:block;height:7px;background:var(--color-accent);width:{{ f.keptW }}"></span>
+            <span style="display:block;height:7px;width:{{ f.rejW }};background:repeating-linear-gradient(135deg,rgba(89,128,166,.5) 0 2px,transparent 2px 4px)"></span>
+          </div>
+        </div>
+      </sc-for>
+      <div style="border-top:1px solid var(--color-divider);margin-top:16px;padding-top:12px;display:flex;justify-content:space-between;font-family:var(--font-heading);font-size:19px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text)"><span>Total</span><span>20h 30m</span></div>
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;color:var(--color-neutral-500);margin:6px 0 0">Hatched = frames shot, rejected at integration</p>
+    </div>
+  </div>
+  <div style="border-top:1px solid var(--color-divider);padding:22px 0 34px">
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 16px">Recent frames</p>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+      <sc-for list="{{ recent }}" as="r" hint-placeholder-count="4">
+        <a href="#1b" style="text-decoration:none;display:block">
+          <div style="border:1px solid var(--color-divider);padding:4px;background:#0c0e11"><img src="{{ r.src }}" alt="{{ r.id }}" style="display:block;width:100%;height:132px;object-fit:cover"></div>
+          <p style="font-family:var(--font-heading);font-size:19px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text);margin:8px 0 2px">{{ r.id }}</p>
+          <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin:0">{{ r.meta }}</p>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Gallery — dense edge-to-edge mosaic, data on hover</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="gallery" hint-size="100%,62px"></dc-import>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--color-divider)">
+  <div style="display:flex;gap:8px">
+    <span style="background:var(--color-accent);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px">All · 41</span>
+    <span style="border:1px solid rgba(29,31,32,.24);color:var(--color-neutral-800);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px">Emission · 26</span>
+    <span style="border:1px solid rgba(29,31,32,.24);color:var(--color-neutral-800);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px">Supernova remnant · 4</span>
+    <span style="border:1px solid rgba(29,31,32,.24);color:var(--color-neutral-800);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px">Galaxy · 7</span>
+    <span style="border:1px solid rgba(29,31,32,.24);color:var(--color-neutral-800);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px">Cluster · 4</span>
+  </div>
+  <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Sort: integration ↓</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:2px;background:#0c0e11;padding:2px">
+  <sc-for list="{{ mosaic }}" as="m" hint-placeholder-count="14">
+    <a href="#1c" style="position:relative;display:block;grid-column:{{ m.col }};grid-row:{{ m.row }};overflow:hidden;text-decoration:none">
+      <img src="{{ m.src }}" alt="{{ m.id }}" style="display:block;width:100%;height:100%;object-fit:cover">
+      <span style="position:absolute;left:0;right:0;bottom:0;padding:26px 10px 8px;background:linear-gradient(transparent,rgba(12,14,17,.86));display:flex;justify-content:space-between;align-items:baseline">
+        <span style="font-family:var(--font-heading);font-size:17px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-bg)">{{ m.id }}</span>
+        <span style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.08em;color:var(--color-accent-300)">{{ m.hours }}</span>
+      </span>
+    </a>
+  </sc-for>
+</div>
+<div style="padding:18px 28px;display:flex;justify-content:center">
+  <span style="border:1px solid rgba(29,31,32,.3);color:var(--color-text);font-family:var(--font-heading);font-size:15px;letter-spacing:.14em;text-transform:uppercase;padding:9px 22px">Load 2021–2024</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Article A — editorial column with sticky spec sidebar</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="targets" hint-size="100%,62px"></dc-import>
+<div style="background:#0c0e11;padding:0">
+  <img src="img/ngc6888.jpg" alt="NGC 6888" style="display:block;width:100%;height:430px;object-fit:cover">
+</div>
+<div style="display:grid;grid-template-columns:1fr 372px;gap:0">
+  <div style="padding:34px 40px 44px">
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 10px">Frame no. 038 · Captured 12 Jul – 04 Aug 2026</p>
+    <h1 style="font-family:var(--font-heading);font-weight:600;font-size:60px;line-height:.96;margin:0 0 8px;color:var(--color-text)">NGC 6888 — The Crescent Nebula</h1>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:0 0 26px;padding-bottom:22px;border-bottom:1px solid var(--color-divider)">Wolf-Rayet bubble · Cygnus · 5,000 ly · 18′ × 12′</p>
+    <h2 style="font-family:var(--font-heading);font-weight:600;font-size:24px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text);margin:0 0 10px">The target</h2>
+    <p style="font-size:17px;line-height:1.64;color:var(--color-neutral-800);margin:0 0 14px;text-wrap:pretty;max-width:66ch">WR 136 is a dying star throwing off its own outer layers at 1,700 km/s. The shell it has inflated over the last quarter-million years is now colliding with the material it shed earlier, and the collision front is what we photograph: a crescent of doubly-ionised oxygen sheathed in hydrogen.</p>
+    <p style="font-size:17px;line-height:1.64;color:var(--color-neutral-800);margin:0 0 30px;text-wrap:pretty;max-width:66ch">It sits in one of the richest parts of the summer Milky Way, which is a mixed blessing — the field is dense with stars, and at 250mm the nebula is small but the surrounding hydrogen structure is enormous.</p>
+    <h2 style="font-family:var(--font-heading);font-weight:600;font-size:24px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text);margin:0 0 10px">Processing</h2>
+    <p style="font-size:17px;line-height:1.64;color:var(--color-neutral-800);margin:0 0 14px;text-wrap:pretty;max-width:66ch">Calibration and registration were unremarkable — flats per filter each night, no darks scaling. The interesting decisions came after stacking. Bortle 9 gradients are not gentle: the Hα master had a light dome across the bottom third that no polynomial model would take out without eating nebulosity, so I modelled it on a heavily blurred copy and subtracted that instead.</p>
+    <p style="font-size:17px;line-height:1.64;color:var(--color-neutral-800);margin:0 0 14px;text-wrap:pretty;max-width:66ch">Stars came out of the linear channels early and were kept aside. The OIII layer was stretched harder than the Hα, then blended as a luminance-weighted screen rather than a straight HOO palette — the crescent otherwise goes the same colour as everything around it. A narrow mask kept the sharpening on the shell itself.</p>
+    <p style="font-size:17px;line-height:1.64;color:var(--color-neutral-800);margin:0 0 22px;text-wrap:pretty;max-width:66ch">Stars were reinserted at about 70% and desaturated a step, which keeps the field from reading as confetti. Total wall-clock processing: perhaps six hours across three sittings, most of it undoing the second one.</p>
+    <div style="position:relative;border-left:2px solid var(--color-accent);padding:2px 0 2px 16px">
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent);margin:0 0 6px">Note to self</p>
+      <p style="font-size:15.5px;line-height:1.55;color:var(--color-neutral-800);margin:0;max-width:58ch">Two hours of SII is not enough to be useful here. Either commit to six or drop the filter from this target entirely.</p>
+    </div>
+  </div>
+  <aside style="border-left:1px solid var(--color-divider);padding:34px 26px 44px;background:var(--color-surface)">
+    <span style="position:relative;display:block;margin-bottom:26px"><i class="mk mk-tl" style="color:var(--color-bg)">+</i><i class="mk mk-br" style="color:var(--color-bg)">+</i>
+      <a href="#1f" style="display:flex;align-items:center;justify-content:center;gap:9px;background:var(--color-accent);color:var(--color-bg);text-decoration:none;padding:12px;font-family:var(--font-heading);font-size:16px;letter-spacing:.14em;text-transform:uppercase">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4.3-4.3M11 8v6M8 11h6"></path></svg>View full resolution</a></span>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 12px">Equipment</p>
+    <sc-for list="{{ gear }}" as="g" hint-placeholder-count="6">
+      <div style="display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid rgba(29,31,32,.1)">
+        <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500);flex:none;width:74px">{{ g.k }}</span>
+        <span style="font-size:13.5px;line-height:1.35;color:var(--color-text);text-align:right">{{ g.v }}</span>
+      </div>
+    </sc-for>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:26px 0 12px">Integration · 20h 30m</p>
+    <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+      <div style="margin-bottom:13px">
+        <div style="display:flex;justify-content:space-between;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800);margin-bottom:5px"><span>{{ f.name }} · {{ f.sub }}</span><span>{{ f.hours }}</span></div>
+        <div style="display:flex;height:9px;background:rgba(29,31,32,.08)">
+          <span style="display:block;height:9px;background:var(--color-accent);width:{{ f.keptW }}"></span>
+          <span style="display:block;height:9px;width:{{ f.rejW }};background:repeating-linear-gradient(135deg,rgba(89,128,166,.55) 0 2px,transparent 2px 4px)"></span>
+        </div>
+        <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.06em;color:var(--color-neutral-500);margin:4px 0 0">{{ f.kept }} kept / {{ f.total }} shot</p>
+      </div>
+    </sc-for>
+    <button onClick="{{ toggle }}" style="width:100%;margin-top:6px;background:none;border:1px solid rgba(29,31,32,.3);color:var(--color-text);font-family:var(--font-heading);font-size:14px;letter-spacing:.14em;text-transform:uppercase;padding:9px;cursor:pointer">{{ toggleLabel }}</button>
+    <sc-if value="{{ expanded }}" hint-placeholder-val="{{ false }}">
+      <table style="width:100%;border-collapse:collapse;margin-top:16px">
+        <thead><tr>
+          <th style="text-align:left;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Night</th>
+          <th style="text-align:left;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Filter</th>
+          <th style="text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Kept</th>
+          <th style="text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Rej.</th>
+          <th style="text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Why</th>
+        </tr></thead>
+        <tbody>
+        <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="6">
+          <tr>
+            <td style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1)">{{ s.date }}</td>
+            <td style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1)">{{ s.filter }}</td>
+            <td style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1);text-align:right">{{ s.kept }}</td>
+            <td style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-600);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1);text-align:right">{{ s.rej }}</td>
+            <td style="font-family:ui-monospace,Menlo,monospace;font-size:9px;color:var(--color-neutral-600);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1);text-align:right">{{ s.why }}</td>
+          </tr>
+        </sc-for>
+        </tbody>
+      </table>
+    </sc-if>
+  </aside>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Article B — spec-sheet plate, image inside a drawing frame</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="targets" hint-size="100%,62px"></dc-import>
+<div style="padding:26px 28px 34px">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border:1px solid rgba(29,31,32,.28)">
+    <div style="grid-column:1 / 3;padding:14px 16px;border-right:1px solid var(--color-divider)">
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 4px">Target</p>
+      <p style="font-family:var(--font-heading);font-weight:600;font-size:34px;line-height:1;color:var(--color-text);margin:0">IC 1848 — The Soul Nebula</p>
+    </div>
+    <div style="padding:14px 16px;border-right:1px solid var(--color-divider)">
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 4px">Frame / Rev</p>
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:15px;color:var(--color-text);margin:0">039 / C</p>
+    </div>
+    <div style="padding:14px 16px">
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 4px">Integration</p>
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:15px;color:var(--color-accent);margin:0">20h 30m</p>
+    </div>
+    <div style="grid-column:1 / 5;border-top:1px solid rgba(29,31,32,.28);background:#0c0e11;position:relative;padding:9px">
+      <img src="img/ic1848.jpg" alt="IC 1848" style="display:block;width:100%;height:auto;object-fit:contain">
+      <span style="position:absolute;left:18px;bottom:18px;display:flex;gap:1px">
+        <span style="background:rgba(12,14,17,.72);border:1px solid rgba(242,242,243,.28);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px">HOO · 3nm</span>
+        <span style="background:rgba(12,14,17,.72);border:1px solid rgba(242,242,243,.28);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px">250mm f/4.9</span>
+        <span style="background:rgba(12,14,17,.72);border:1px solid rgba(242,242,243,.28);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px">3.76µm · 3.10″/px</span>
+      </span>
+      <a href="#1f" style="position:absolute;right:18px;bottom:18px;background:var(--color-accent);color:var(--color-bg);text-decoration:none;font-family:var(--font-heading);font-size:14px;letter-spacing:.14em;text-transform:uppercase;padding:8px 16px">Zoom 1:1</a>
+    </div>
+    <sc-for list="{{ plate }}" as="p" hint-placeholder-count="8">
+      <div style="padding:12px 16px;border-top:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">
+        <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 5px">{{ p.k }}</p>
+        <p style="font-size:14.5px;line-height:1.3;color:var(--color-text);margin:0">{{ p.v }}</p>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 460px;gap:38px;padding-top:30px">
+    <div>
+      <h2 style="font-family:var(--font-heading);font-weight:600;font-size:23px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text);margin:0 0 10px">Target &amp; processing</h2>
+      <p style="font-size:16px;line-height:1.6;color:var(--color-neutral-800);margin:0 0 13px;text-wrap:pretty">A 100-light-year hollow of ionised hydrogen in Cassiopeia, carved by the young cluster inside it. At 250mm the whole complex fits with room to spare, which is the reason this rig exists.</p>
+      <p style="font-size:16px;line-height:1.6;color:var(--color-neutral-800);margin:0 0 13px;text-wrap:pretty">Three of the nine nights went in the bin. Two to high cloud that the guider happily tracked straight through, one to a neighbour's motion light — those subs are still in the archive, marked, because the rejection log is part of the record.</p>
+      <p style="font-size:16px;line-height:1.6;color:var(--color-neutral-800);margin:0;text-wrap:pretty">Processing kept to a short path: linear gradient removal per master, deconvolution on Hα only, an HOO blend weighted 60/40 toward hydrogen, then a soft luminance mask to stop the dust lanes going grey. Stars added last, small and cool.</p>
+    </div>
+    <div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
+        <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0">Per-filter integration</p>
+        <button onClick="{{ toggle }}" style="background:none;border:1px solid rgba(29,31,32,.3);color:var(--color-text);font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;cursor:pointer">{{ toggleLabel }}</button>
+      </div>
+      <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:88px 1fr 62px;align-items:center;gap:10px;margin-bottom:9px">
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800)">{{ f.name }}</span>
+          <span style="display:flex;height:14px;background:rgba(29,31,32,.06)">
+            <span style="display:block;height:14px;background:var(--color-accent);width:{{ f.keptW }}"></span>
+            <span style="display:block;height:14px;width:{{ f.rejW }};background:repeating-linear-gradient(135deg,rgba(89,128,166,.6) 0 2px,transparent 2px 4px)"></span>
+          </span>
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-text);text-align:right">{{ f.hours }}</span>
+        </div>
+      </sc-for>
+      <div style="display:flex;gap:18px;margin-top:12px;padding-top:10px;border-top:1px solid var(--color-divider)">
+        <span style="display:flex;align-items:center;gap:6px;font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)"><span style="width:14px;height:8px;background:var(--color-accent);display:block"></span>Kept</span>
+        <span style="display:flex;align-items:center;gap:6px;font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)"><span style="width:14px;height:8px;display:block;background:repeating-linear-gradient(135deg,rgba(89,128,166,.6) 0 2px,transparent 2px 4px)"></span>Rejected at integration</span>
+      </div>
+      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ false }}">
+        <table style="width:100%;border-collapse:collapse;margin-top:16px">
+          <thead><tr>
+            <th style="text-align:left;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Night</th>
+            <th style="text-align:left;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Filter</th>
+            <th style="text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Kept</th>
+            <th style="text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Rej.</th>
+            <th style="text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.24);font-weight:400">Reason</th>
+          </tr></thead>
+          <tbody>
+          <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="6">
+            <tr>
+              <td style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1)">{{ s.date }}</td>
+              <td style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1)">{{ s.filter }}</td>
+              <td style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-800);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1);text-align:right">{{ s.kept }}</td>
+              <td style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-neutral-600);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1);text-align:right">{{ s.rej }}</td>
+              <td style="font-family:ui-monospace,Menlo,monospace;font-size:9px;color:var(--color-neutral-600);padding:6px 0;border-bottom:1px solid rgba(29,31,32,.1);text-align:right">{{ s.why }}</td>
+            </tr>
+          </sc-for>
+          </tbody>
+        </table>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Article C — split: image pinned dark left, log scrolls right</div>
+<div class="dv-card" style="width:1280px">
+<div style="display:grid;grid-template-columns:660px 1fr;height:760px">
+  <div style="background:#0c0e11;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(242,242,243,.14)">
+      <span style="display:flex;align-items:center;gap:9px"><span style="width:10px;height:10px;background:var(--color-accent);display:block"></span><span style="font-family:var(--font-heading);font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-bg)">Subframe</span></span>
+      <span style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-400)">Frame 040</span>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:18px">
+      <img src="img/ngc7635.jpg" alt="NGC 7635" style="display:block;max-width:100%;max-height:100%;object-fit:contain">
+    </div>
+    <div style="padding:0 18px 16px">
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:0 0 8px">Channel masters</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <sc-for list="{{ channels }}" as="c" hint-placeholder-count="4">
+          <div style="border:1px solid rgba(242,242,243,.18);padding:3px">
+            <img src="{{ c.src }}" alt="{{ c.k }}" style="display:block;width:100%;height:58px;object-fit:cover;filter:grayscale(1) contrast(1.1)">
+            <p style="font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-300);margin:4px 2px 2px">{{ c.k }} · {{ c.h }}</p>
+          </div>
+        </sc-for>
+      </div>
+      <a href="#1f" style="display:block;text-align:center;margin-top:12px;background:var(--color-accent);color:var(--color-bg);text-decoration:none;font-family:var(--font-heading);font-size:15px;letter-spacing:.14em;text-transform:uppercase;padding:10px">Open full resolution viewer</a>
+    </div>
+  </div>
+  <div style="overflow:auto;padding:28px 32px 40px;background:var(--color-bg)">
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 8px">Observation log · 2026</p>
+    <h1 style="font-family:var(--font-heading);font-weight:600;font-size:46px;line-height:.98;margin:0 0 6px;color:var(--color-text)">NGC 7635 — The Bubble</h1>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--color-neutral-600);margin:0 0 22px">Emission nebula · Cassiopeia · 7,100 ly · SAO 20575</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--color-divider);margin-bottom:24px">
+      <sc-for list="{{ stats }}" as="s" hint-placeholder-count="6">
+        <div style="background:var(--color-bg);padding:11px 13px">
+          <p style="font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 4px">{{ s.k }}</p>
+          <p style="font-family:var(--font-heading);font-size:21px;letter-spacing:.03em;color:var(--color-text);margin:0">{{ s.v }}</p>
+        </div>
+      </sc-for>
+    </div>
+    <p style="font-size:16px;line-height:1.6;color:var(--color-neutral-800);margin:0 0 12px;text-wrap:pretty">A ten-light-year bubble blown into a molecular cloud by one hot young star sitting slightly off-centre. Small, bright, and unforgiving about star bloat — the reason half the SII went in the bin.</p>
+    <p style="font-size:16px;line-height:1.6;color:var(--color-neutral-800);margin:0 0 24px;text-wrap:pretty">Processing was a short, mostly linear path: gradient model per master, star removal before any stretch, an OIII-weighted blend for the shell, then careful reinsertion at reduced brightness. No sharpening beyond the shell mask.</p>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 10px">Nightly ledger</p>
+    <div style="border-top:1px solid rgba(29,31,32,.24)">
+      <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="7">
+        <div style="display:grid;grid-template-columns:74px 66px 1fr 78px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(29,31,32,.1)">
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--color-text)">{{ s.date }}</span>
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--color-accent)">{{ s.filter }}</span>
+          <span style="display:flex;height:10px;background:rgba(29,31,32,.06)">
+            <span style="display:block;height:10px;background:var(--color-accent);width:{{ s.keptW }}"></span>
+            <span style="display:block;height:10px;width:{{ s.rejW }};background:repeating-linear-gradient(135deg,rgba(89,128,166,.6) 0 2px,transparent 2px 4px)"></span>
+          </span>
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;color:var(--color-neutral-600);text-align:right">{{ s.short }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.08em;color:var(--color-neutral-500);margin:10px 0 0">Solid = integrated · hatched = shot and rejected. 41 of 382 subs rejected (10.7%).</p>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Full-resolution viewer — live zoom, pan, annotation overlay</div>
+<div class="dv-card" style="width:1280px;background:#0c0e11;border-color:rgba(0,0,0,.5)">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid rgba(242,242,243,.14)">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <span style="font-family:var(--font-heading);font-size:20px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-bg)">WR 134</span>
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">5983 × 3499 · 3.10″/px · 20.9 MP</span>
+  </div>
+  <div style="display:flex;gap:1px;align-items:center">
+    <button onClick="{{ zoomOut }}" style="background:none;border:1px solid rgba(242,242,243,.26);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:12px;width:30px;height:28px;cursor:pointer">–</button>
+    <span style="border:1px solid rgba(242,242,243,.26);border-left:0;border-right:0;color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:10px;height:28px;display:flex;align-items:center;padding:0 12px;min-width:56px;justify-content:center">{{ zoomLabel }}</span>
+    <button onClick="{{ zoomIn }}" style="background:none;border:1px solid rgba(242,242,243,.26);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:12px;width:30px;height:28px;cursor:pointer">+</button>
+    <button onClick="{{ reset }}" style="margin-left:10px;background:none;border:1px solid rgba(242,242,243,.26);color:var(--color-bg);font-family:var(--font-heading);font-size:13px;letter-spacing:.12em;text-transform:uppercase;padding:0 12px;height:28px;cursor:pointer">Fit</button>
+    <button onClick="{{ toggleAnnot }}" style="margin-left:8px;background:{{ annotBg }};border:1px solid rgba(242,242,243,.26);color:{{ annotFg }};font-family:var(--font-heading);font-size:13px;letter-spacing:.12em;text-transform:uppercase;padding:0 12px;height:28px;cursor:pointer">Annotations</button>
+    <span style="margin-left:14px;color:var(--color-neutral-600);font-family:ui-monospace,Menlo,monospace;font-size:16px;line-height:1">×</span>
+  </div>
+</div>
+<div onWheel="{{ onWheel }}" onMouseDown="{{ onDown }}" onMouseMove="{{ onMove }}" onMouseUp="{{ onUp }}" onMouseLeave="{{ onUp }}" style="position:relative;height:640px;overflow:hidden;cursor:grab;background:#000;user-select:none">
+  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+    <div style="position:relative;transform:{{ zTransform }};transform-origin:center center;will-change:transform">
+      <img src="img/wr134.jpg" alt="WR 134" draggable="false" style="display:block;width:1278px;height:auto;pointer-events:none">
+      <sc-if value="{{ annot }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;inset:0">
+          <sc-for list="{{ marks }}" as="a" hint-placeholder-count="5">
+            <span style="position:absolute;left:{{ a.x }};top:{{ a.y }};transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px">
+              <span style="width:{{ a.r }};height:{{ a.r }};border:1px solid rgba(180,217,253,.85);border-radius:50%;display:block"></span>
+              <span style="font-family:ui-monospace,Menlo,monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-300);background:rgba(12,14,17,.6);padding:1px 4px;white-space:nowrap">{{ a.label }}</span>
+            </span>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+  <div style="position:absolute;left:16px;bottom:16px;display:flex;gap:1px">
+    <span style="background:rgba(12,14,17,.72);border:1px solid rgba(242,242,243,.24);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px">Hα 8h · OIII 6h · SII 5h · RGB 1h30</span>
+    <span style="background:rgba(12,14,17,.72);border:1px solid rgba(242,242,243,.24);color:var(--color-accent-400);font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px">Scroll to zoom · drag to pan</span>
+  </div>
+  <div style="position:absolute;right:16px;bottom:16px;width:150px;border:1px solid rgba(242,242,243,.3);padding:2px;background:rgba(12,14,17,.6)">
+    <div style="position:relative">
+      <img src="img/wr134.jpg" alt="" style="display:block;width:100%;height:auto;opacity:.55">
+      <span style="position:absolute;border:1px solid var(--color-accent-300);left:{{ miniL }};top:{{ miniT }};width:{{ miniW }};height:{{ miniH }};box-sizing:border-box"></span>
+    </div>
+  </div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-top:1px solid rgba(242,242,243,.14)">
+  <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Wolf-Rayet ring · Cygnus · 6,000 ly</span>
+  <div style="display:flex;gap:10px">
+    <span style="border:1px solid rgba(242,242,243,.26);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px">Download 2048px</span>
+    <span style="border:1px solid rgba(242,242,243,.26);color:var(--color-bg);font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px">Print enquiry</span>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1g">
+<div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Browse — filter by object class, filter set, integration</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="targets" hint-size="100%,62px"></dc-import>
+<div style="display:grid;grid-template-columns:280px 1fr">
+  <aside style="border-right:1px solid var(--color-divider);padding:26px 22px 40px;background:var(--color-surface)">
+    <div style="display:flex;align-items:center;gap:8px;border:1px solid rgba(29,31,32,.3);padding:8px 10px;margin-bottom:24px;background:var(--color-bg)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="1.5"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4.3-4.3"></path></svg>
+      <span style="font-family:var(--font-body);font-size:13.5px;color:var(--color-neutral-500)">Catalog ID, name, constellation…</span>
+    </div>
+    <sc-for list="{{ facets }}" as="fc" hint-placeholder-count="4">
+      <div style="margin-bottom:24px">
+        <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 10px">{{ fc.k }}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <sc-for list="{{ fc.items }}" as="it" hint-placeholder-count="5">
+            <span style="border:1px solid rgba(29,31,32,.24);color:var(--color-neutral-800);font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:5px 9px;background:{{ it.bg }};border-color:{{ it.bc }};color:{{ it.fg }}">{{ it.t }}</span>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 10px">Integration ≥</p>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="flex:1;height:3px;background:var(--color-divider);position:relative;display:block"><span style="position:absolute;left:0;top:0;height:3px;width:46%;background:var(--color-accent);display:block"></span><span style="position:absolute;left:46%;top:-4px;width:11px;height:11px;background:var(--color-accent);display:block"></span></span>
+      <span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--color-text)">10h</span>
+    </div>
+  </aside>
+  <div style="padding:22px 26px 36px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+      <p style="font-family:var(--font-heading);font-size:26px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text);margin:0">14 frames · Emission + narrowband</p>
+      <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Grid · List · Map</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+      <sc-for list="{{ browse }}" as="b" hint-placeholder-count="6">
+        <a href="#1c" style="text-decoration:none;display:block;position:relative;border:1px solid var(--color-divider);padding:5px">
+          <i class="mk mk-tl">+</i><i class="mk mk-br">+</i>
+          <div style="background:#0c0e11"><img src="{{ b.src }}" alt="{{ b.id }}" style="display:block;width:100%;height:160px;object-fit:cover"></div>
+          <div style="padding:10px 6px 6px">
+            <p style="font-family:var(--font-heading);font-size:21px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text);margin:0 0 3px">{{ b.id }}</p>
+            <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin:0 0 8px">{{ b.meta }}</p>
+            <div style="display:flex;gap:4px">
+              <sc-for list="{{ b.tags }}" as="t" hint-placeholder-count="3">
+                <span style="background:var(--color-accent-200);color:var(--color-accent-800);font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;padding:3px 6px">{{ t }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1h">
+<div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>About &amp; rig — the gear page doubling as colophon</div>
+<div class="dv-card" style="width:1280px">
+<dc-import name="SiteNav" active="about" hint-size="100%,62px"></dc-import>
+<div style="display:grid;grid-template-columns:1fr 520px;gap:0">
+  <div style="padding:38px 40px 46px">
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 12px">About</p>
+    <h1 style="font-family:var(--font-heading);font-weight:600;font-size:52px;line-height:1;margin:0 0 18px;color:var(--color-text)">Narrowband from<br>a Bortle 9 sky</h1>
+    <p style="font-size:17px;line-height:1.62;color:var(--color-neutral-800);margin:0 0 14px;max-width:60ch;text-wrap:pretty">Montréal is about as bad a place to photograph the sky as a city can be. The compensation is 3nm filters, a small fast refractor, and a lot of patience: every image here is the sum of many short nights, most of them interrupted.</p>
+    <p style="font-size:17px;line-height:1.62;color:var(--color-neutral-800);margin:0 0 26px;max-width:60ch;text-wrap:pretty">Each article records what was shot, what was thrown away, and why — including the frames that never made it into the stack. That log is half the point of the site.</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--color-divider);margin-bottom:30px">
+      <sc-for list="{{ totals }}" as="t" hint-placeholder-count="6">
+        <div style="background:var(--color-bg);padding:14px 14px">
+          <p style="font-family:var(--font-heading);font-weight:600;font-size:34px;line-height:1;color:var(--color-accent);margin:0 0 3px">{{ t.v }}</p>
+          <p style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:0">{{ t.k }}</p>
+        </div>
+      </sc-for>
+    </div>
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent);margin:0 0 12px">Current rig</p>
+    <div style="border-top:1px solid rgba(29,31,32,.24)">
+      <sc-for list="{{ gear }}" as="g" hint-placeholder-count="7">
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:16px;padding:9px 0;border-bottom:1px solid rgba(29,31,32,.1)">
+          <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-500)">{{ g.k }}</span>
+          <span style="font-size:14.5px;color:var(--color-text)">{{ g.v }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="background:#0c0e11;padding:18px;display:flex;flex-direction:column;gap:18px">
+    <div style="position:relative;flex:1;min-height:0">
+      <img src="img/wr134.jpg" alt="WR 134" style="display:block;width:100%;height:100%;object-fit:cover">
+      <span style="position:absolute;left:12px;bottom:12px;font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-300);background:rgba(12,14,17,.66);padding:4px 8px">WR 134 · 24h 10m · HOO</span>
+    </div>
+    <div style="border:1px solid rgba(242,242,243,.2);padding:16px">
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent-400);margin:0 0 8px">Prints &amp; licensing</p>
+      <p style="font-size:14.5px;line-height:1.5;color:var(--color-neutral-300);margin:0 0 14px">Full-resolution TIFFs and pigment prints up to 24 × 36″. Editorial use by arrangement.</p>
+      <span style="display:inline-block;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:15px;letter-spacing:.14em;text-transform:uppercase;padding:9px 18px">Get in touch</span>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "take <a class="dv-oid" href="#1d">1d</a>'s data plate into <a class="dv-oid" href="#1c">1c</a>" · "make the gallery dark like <a class="dv-oid" href="#1f">1f</a>" · "add a comparison slider to the viewer"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { expanded: false, zoom: 1, x: 0, y: 0, annot: true, drag: null };
+
+  renderVals() {
+    const s = this.state;
+    const rawFilters = [
+      { name: "Hα 3nm", sub: "300s", kept: 96, total: 108, h: 8.0 },
+      { name: "OIII 3nm", sub: "300s", kept: 72, total: 84, h: 6.0 },
+      { name: "SII 3nm", sub: "300s", kept: 60, total: 71, h: 5.0 },
+      { name: "RGB stars", sub: "60s", kept: 90, total: 96, h: 1.5 }
+    ];
+    const maxH = 8.9;
+    const hm = (h) => Math.floor(h) + "h " + String(Math.round((h % 1) * 60)).padStart(2, "0") + "m";
+    const filters = rawFilters.map(f => {
+      const perSub = f.h / f.kept;
+      const rejH = perSub * (f.total - f.kept);
+      return { ...f, hours: hm(f.h), keptW: (f.h / maxH * 100).toFixed(1) + "%", rejW: (rejH / maxH * 100).toFixed(1) + "%" };
+    });
+
+    const sessRaw = [
+      { date: "12 Jul", filter: "Hα", kept: 24, rej: 0, why: "—" },
+      { date: "14 Jul", filter: "Hα", kept: 22, rej: 6, why: "Cloud" },
+      { date: "18 Jul", filter: "OIII", kept: 18, rej: 2, why: "Guiding" },
+      { date: "21 Jul", filter: "OIII", kept: 24, rej: 0, why: "—" },
+      { date: "26 Jul", filter: "SII", kept: 16, rej: 7, why: "Floodlight" },
+      { date: "29 Jul", filter: "SII", kept: 20, rej: 4, why: "Cloud" },
+      { date: "04 Aug", filter: "RGB", kept: 90, rej: 6, why: "Trailing" }
+    ];
+    const maxSubs = 96;
+    const sessions = sessRaw.map(x => ({
+      ...x,
+      keptW: (x.kept / maxSubs * 100).toFixed(1) + "%",
+      rejW: (x.rej / maxSubs * 100).toFixed(1) + "%",
+      short: x.kept + "/" + (x.kept + x.rej) + " · " + x.why
+    }));
+
+    const gear = [
+      { k: "Optics", v: "William Optics RedCat 51 · 250mm f/4.9" },
+      { k: "Camera", v: "QHY MiniCam8M · IMX585 · 3.76µm" },
+      { k: "Filters", v: "XiMei 3nm Hα / OIII / SII + XiMei L-Pro" },
+      { k: "Mount", v: "ZWO AM3 harmonic, no counterweight" },
+      { k: "Guiding", v: "Uniguide 32mm + ZWO ASI120MM Mini" },
+      { k: "Control", v: "Mele Quieter 4C · NINA + PHD2" },
+      { k: "Site", v: "Montréal, QC · Bortle 9 · 45.5° N" }
+    ];
+
+    const recent = [
+      { src: "img/ngc6888.jpg", id: "NGC 6888", meta: "Crescent · 20h30 · HOO" },
+      { src: "img/ic1848.jpg", id: "IC 1848", meta: "Soul · 18h05 · HOO" },
+      { src: "img/ngc7635.jpg", id: "NGC 7635", meta: "Bubble · 15h40 · SHO" },
+      { src: "img/wr134.jpg", id: "WR 134", meta: "Wolf-Rayet · 24h10 · HOO" }
+    ];
+
+    const srcs = ["img/sh2-114.jpg", "img/ngc6888.jpg", "img/ic1848.jpg", "img/ngc7635.jpg", "img/wr134.jpg"];
+    const ids = ["Sh2-114", "NGC 6888", "IC 1848", "NGC 7635", "WR 134"];
+    const spans = [
+      [ "1 / 4", "1 / 3" ], [ "4 / 7", "1 / 2" ], [ "4 / 6", "2 / 3" ], [ "6 / 7", "2 / 3" ],
+      [ "1 / 2", "3 / 4" ], [ "2 / 4", "3 / 5" ], [ "4 / 7", "3 / 4" ],
+      [ "1 / 2", "4 / 5" ], [ "4 / 5", "4 / 5" ], [ "5 / 7", "4 / 6" ],
+      [ "1 / 3", "5 / 6" ], [ "3 / 5", "5 / 6" ]
+    ];
+    const hoursList = ["20h30", "24h10", "15h40", "8h05", "11h20", "18h05", "6h40", "31h00", "9h15", "13h30", "22h45", "7h50"];
+    const mosaic = spans.map((sp, i) => ({
+      src: srcs[i % 5], id: ids[(i * 3) % 5], hours: hoursList[i], col: sp[0], row: sp[1]
+    }));
+
+    const plate = [
+      { k: "Catalog", v: "IC 1848 · Sh2-199 · LBN 667" },
+      { k: "Class", v: "Emission nebula / H II region" },
+      { k: "Constellation", v: "Cassiopeia" },
+      { k: "Distance", v: "7,500 light years" },
+      { k: "Coordinates", v: "RA 02h 51m · Dec +60° 26′" },
+      { k: "Palette", v: "HOO, hydrogen-weighted 60/40" },
+      { k: "Sessions", v: "9 nights · 12 Jul – 04 Aug 2026" },
+      { k: "Sky", v: "Bortle 9 · SQM 18.1 · full Moon 2 nights" }
+    ];
+
+    const channels = [
+      { src: "img/ngc7635.jpg", k: "Hα", h: "8h00" },
+      { src: "img/ic1848.jpg", k: "OIII", h: "6h00" },
+      { src: "img/sh2-114.jpg", k: "SII", h: "5h00" },
+      { src: "img/wr134.jpg", k: "RGB", h: "1h30" }
+    ];
+
+    const stats = [
+      { k: "Integration", v: "20h 30m" }, { k: "Nights", v: "9" }, { k: "Subs kept", v: "341 / 382" },
+      { k: "Palette", v: "SHO" }, { k: "Scale", v: "3.10″/px" }, { k: "Guide RMS", v: "0.62″" }
+    ];
+
+    const on = { bg: "var(--color-accent)", bc: "var(--color-accent)", fg: "var(--color-bg)" };
+    const off = { bg: "transparent", bc: "rgba(29,31,32,.24)", fg: "var(--color-neutral-800)" };
+    const mk = (t, sel) => ({ t, ...(sel ? on : off) });
+    const facets = [
+      { k: "Object class", items: [mk("Emission", true), mk("Reflection"), mk("SNR"), mk("Galaxy"), mk("Cluster"), mk("Planetary")] },
+      { k: "Filter set", items: [mk("Hα 3nm", true), mk("OIII 3nm", true), mk("SII 3nm"), mk("L-Pro"), mk("RGB")] },
+      { k: "Constellation", items: [mk("Cygnus"), mk("Cassiopeia"), mk("Cepheus"), mk("Auriga"), mk("Orion")] },
+      { k: "Year", items: [mk("2026", true), mk("2025"), mk("2024"), mk("2023")] }
+    ];
+
+    const browse = [
+      { src: "img/sh2-114.jpg", id: "Sh2-114", meta: "Cygnus · 20h30 · 2026", tags: ["Hα", "OIII", "SNR?"] },
+      { src: "img/ngc6888.jpg", id: "NGC 6888", meta: "Cygnus · 20h30 · 2026", tags: ["Hα", "OIII", "WR"] },
+      { src: "img/ic1848.jpg", id: "IC 1848", meta: "Cassiopeia · 18h05 · 2026", tags: ["Hα", "OIII"] },
+      { src: "img/ngc7635.jpg", id: "NGC 7635", meta: "Cassiopeia · 15h40 · 2025", tags: ["Hα", "OIII", "SII"] },
+      { src: "img/wr134.jpg", id: "WR 134", meta: "Cygnus · 24h10 · 2025", tags: ["Hα", "OIII"] },
+      { src: "img/sh2-114.jpg", id: "Sh2-129", meta: "Cepheus · 11h20 · 2025", tags: ["Hα", "OIII"] }
+    ];
+
+    const cat = [
+      { src: "img/sh2-114.jpg", id: "Sh2-114", sub: "The Flying Dragon", meta: "Cygnus · emission · 20h 30m", pal: "HOO", date: "Aug 2026", blurb: "A forgotten ribbon of hydrogen on the Cygnus border — probably an ancient supernova remnant, and faint enough to be a statistic before the fourth hour." },
+      { src: "img/ngc6888.jpg", id: "NGC 6888", sub: "The Crescent", meta: "Cygnus · WR bubble · 20h 30m", pal: "HOO", date: "Aug 2026", blurb: "A dying star's own shed layers colliding with what it threw off earlier. The collision front is the crescent." },
+      { src: "img/ic1848.jpg", id: "IC 1848", sub: "The Soul", meta: "Cassiopeia · H II · 18h 05m", pal: "HOO", date: "Jul 2026", blurb: "A hundred light years of hollowed hydrogen, carved by the young cluster sitting inside it. Three of nine nights went in the bin." },
+      { src: "img/ngc7635.jpg", id: "NGC 7635", sub: "The Bubble", meta: "Cassiopeia · emission · 15h 40m", pal: "SHO", date: "Nov 2025", blurb: "Ten light years of shell blown into a molecular cloud by one hot star sitting slightly off-centre." },
+      { src: "img/wr134.jpg", id: "WR 134", sub: "Wolf-Rayet ring", meta: "Cygnus · WR shell · 24h 10m", pal: "HOO", date: "Sep 2025", blurb: "The deepest field on the site: twenty-four hours for an oxygen arc that barely clears the light dome." }
+    ];
+
+    const groups = [
+      { k: "Emission nebulae", n: "26 frames · 402h", items: cat.slice(0, 4) },
+      { k: "Wolf-Rayet shells", n: "5 frames · 96h", items: [cat[4], cat[1], cat[0]] },
+      { k: "Supernova remnants", n: "4 frames · 71h", items: [cat[0], cat[3], cat[2], cat[4]] }
+    ];
+
+    const totals = [
+      { v: "41", k: "Published frames" }, { v: "612h", k: "Total integration" }, { v: "187", k: "Nights out" },
+      { v: "11%", k: "Subs rejected" }, { v: "3nm", k: "Narrowband bandwidth" }, { v: "9", k: "Bortle class" }
+    ];
+
+    const marks = [
+      { x: "31%", y: "44%", r: "54px", label: "WR 134" },
+      { x: "58%", y: "36%", r: "34px", label: "Sh2-109" },
+      { x: "72%", y: "62%", r: "26px", label: "HD 191765" },
+      { x: "19%", y: "70%", r: "22px", label: "TYC 3149" },
+      { x: "46%", y: "76%", r: "30px", label: "LBN 251" }
+    ];
+
+    const z = s.zoom;
+    const vw = 1278, vh = 640;
+    const iw = vw * z, ih = vw / 1.71 * z;
+    const fw = Math.min(1, vw / iw), fh = Math.min(1, vh / ih);
+
+    return {
+      filters, sessions, gear, recent, mosaic, plate, channels, stats, facets, browse, totals, marks, cat, groups,
+      expanded: s.expanded,
+      toggleLabel: s.expanded ? "Hide frame log" : "Show frame-by-frame log",
+      toggle: () => this.setState(p => ({ expanded: !p.expanded })),
+      annot: s.annot,
+      annotBg: s.annot ? "var(--color-accent)" : "transparent",
+      annotFg: s.annot ? "var(--color-bg)" : "var(--color-bg)",
+      zoomLabel: Math.round(z * 100) + "%",
+      zTransform: "translate(" + s.x + "px," + s.y + "px) scale(" + z + ")",
+      miniL: (50 - fw * 50 - (s.x / iw) * 100).toFixed(1) + "%",
+      miniT: (50 - fh * 50 - (s.y / ih) * 100).toFixed(1) + "%",
+      miniW: (fw * 100).toFixed(1) + "%",
+      miniH: (fh * 100).toFixed(1) + "%",
+      zoomIn: () => this.zoomBy(1.35),
+      zoomOut: () => this.zoomBy(1 / 1.35),
+      reset: () => this.setState({ zoom: 1, x: 0, y: 0 }),
+      toggleAnnot: () => this.setState(p => ({ annot: !p.annot })),
+      onWheel: (e) => { e.preventDefault(); this.zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12); },
+      onDown: (e) => this.setState({ drag: { px: e.clientX, py: e.clientY } }),
+      onMove: (e) => {
+        const d = this.state.drag;
+        if (!d) return;
+        this.setState(p => ({ x: p.x + (e.clientX - d.px), y: p.y + (e.clientY - d.py), drag: { px: e.clientX, py: e.clientY } }));
+      },
+      onUp: () => { if (this.state.drag) this.setState({ drag: null }); }
+    };
+  }
+
+  zoomBy(f) {
+    this.setState(p => {
+      const z = Math.max(1, Math.min(8, p.zoom * f));
+      const k = z / p.zoom;
+      return { zoom: z, x: z === 1 ? 0 : p.x * k, y: z === 1 ? 0 : p.y * k };
+    });
+  }
+}
+</script>
+</body>
+</html>

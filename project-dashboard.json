@@ -1,0 +1,12 @@
+{
+  "name": "AstroBlog",
+  "services": [
+    {
+      "name": "Next.js Web",
+      "type": "Next.js",
+      "port": 3003,
+      "command": "npm run dev -- --port 3003",
+      "cwd": "."
+    }
+  ]
+}

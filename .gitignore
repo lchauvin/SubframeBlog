@@ -1,0 +1,115 @@
+# ---------------------------------------------------------------------------
+# Secrets and runtime data — the things that must never be committed
+# ---------------------------------------------------------------------------
+
+# Environment files. .env.example is the one exception: it documents the keys
+# without carrying their values.
+.env
+.env.*
+!.env.example
+
+# Runtime data directory. Holds astroblog.db — which contains the admin scrypt
+# password hash and live session tokens — plus every uploaded master and its
+# derivatives. Sensitive AND large; back it up by copying the folder, not by
+# committing it.
+data/
+
+# Any stray database file kept outside data/ (e.g. ASTROBLOG_DATA_DIR pointed
+# elsewhere). -wal / -shm are SQLite's write-ahead log and shared-memory files.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+
+# Backups and dumps, which routinely contain the same credentials
+*.sql.gz
+*.dump
+*.bak
+backup/
+backups/
+
+# Keys, certificates, credential stores
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+*.gpg
+secrets/
+credentials.json
+service-account*.json
+
+# npm/yarn auth tokens live here
+.npmrc
+.yarnrc
+.netrc
+
+# ---------------------------------------------------------------------------
+# Build output and caches
+# ---------------------------------------------------------------------------
+
+node_modules/
+.next/
+out/
+build/
+dist/
+.turbo/
+.swc/
+next-env.d.ts
+*.tsbuildinfo
+.eslintcache
+.cache/
+coverage/
+.nyc_output/
+
+# ---------------------------------------------------------------------------
+# Logs and diagnostics
+# ---------------------------------------------------------------------------
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+report.*.json
+*.heapsnapshot
+
+# ---------------------------------------------------------------------------
+# Editors and OS cruft
+# ---------------------------------------------------------------------------
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------------------------------------------------------------------------
+# Scratch
+# ---------------------------------------------------------------------------
+
+*.tmp
+*.temp
+tmp/
+scratch/
+
+# NOTE: design/img/*.jpg (~46MB of masters) IS tracked on purpose — `npm run
+# seed` reads those files, so a fresh clone cannot be seeded without them.
+# Consider Git LFS if the repo grows further.

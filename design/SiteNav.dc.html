@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc><helmet data-dc-atomics>
+<link rel="stylesheet" href="_ds/industry-62e589b8-7d0e-4760-9194-5da08cd55736/styles.css">
+<script src="_ds/industry-62e589b8-7d0e-4760-9194-5da08cd55736/_ds_bundle.js"></script>
+</helmet>
+
+<header style="display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:62px;border-bottom:1px solid var(--color-divider);background:var(--color-bg);font-family:var(--font-body)">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="width:12px;height:12px;background:var(--color-accent);display:block"></span>
+    <span style="font-family:var(--font-heading);font-weight:600;font-size:22px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-text)">Subframe</span>
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-top:3px">MTL / Bortle 9</span>
+  </div>
+  <nav style="display:flex;align-items:center;gap:26px">
+    <a href="#" style="font-family:var(--font-heading);font-size:15px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;color:{{ c1 }};border-bottom:2px solid {{ u1 }};padding-bottom:2px">Gallery</a>
+    <a href="#" style="font-family:var(--font-heading);font-size:15px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;color:{{ c2 }};border-bottom:2px solid {{ u2 }};padding-bottom:2px">Targets</a>
+    <a href="#" style="font-family:var(--font-heading);font-size:15px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;color:{{ c3 }};border-bottom:2px solid {{ u3 }};padding-bottom:2px">Gear</a>
+    <a href="#" style="font-family:var(--font-heading);font-size:15px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;color:{{ c4 }};border-bottom:2px solid {{ u4 }};padding-bottom:2px">About</a>
+    <span style="display:flex;align-items:center;gap:7px;border:1px solid var(--color-divider);padding:5px 9px;color:var(--color-neutral-600)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4.3-4.3"></path></svg>
+      <span style="font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase">Search</span>
+    </span>
+  </nav>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;gallery&quot;,&quot;targets&quot;,&quot;gear&quot;,&quot;about&quot;],&quot;default&quot;:&quot;gallery&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const on = "var(--color-text)", off = "var(--color-neutral-600)", u = "var(--color-accent)", t = "transparent";
+    const a = this.props.active || "gallery";
+    const k = ["gallery", "targets", "gear", "about"];
+    const v = {};
+    k.forEach((n, i) => { v["c" + (i + 1)] = a === n ? on : off; v["u" + (i + 1)] = a === n ? u : t; });
+    return v;
+  }
+}
+</script>
+</body>
+</html>

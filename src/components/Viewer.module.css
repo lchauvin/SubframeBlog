@@ -1,0 +1,286 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: var(--mount);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Top bar ------------------------------------------------------------- */
+
+.topBar {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--dark-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: none;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-bg);
+  line-height: 1;
+}
+
+.dimensions {
+  font: 400 9.5px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+}
+
+.control {
+  height: 28px;
+  border: 1px solid rgba(242, 242, 243, 0.26);
+  color: var(--color-bg);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition), border-color var(--transition);
+}
+
+.control:hover:not(:disabled) {
+  background: rgba(148, 188, 227, 0.18);
+  border-color: var(--color-accent-400);
+}
+
+.control:active:not(:disabled) {
+  background: var(--color-accent-400);
+  color: var(--mount);
+}
+
+.stepper {
+  width: 30px;
+  font: 400 14px/1 var(--font-mono);
+}
+
+.readout {
+  min-width: 56px;
+  border-left: none;
+  border-right: none;
+  font: 400 10px/1 var(--font-mono);
+  color: var(--color-bg);
+  justify-content: center;
+  cursor: default;
+}
+
+.wordButton {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0 12px;
+}
+
+.annotationsOn {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.annotationsOn:hover {
+  background: var(--color-accent-600);
+  border-color: var(--color-accent-600);
+}
+
+/* ---- Canvas -------------------------------------------------------------- */
+
+.canvas {
+  flex: 1;
+  overflow: hidden;
+  background: var(--viewer-canvas);
+  cursor: grab;
+  user-select: none;
+  position: relative;
+  touch-action: none;
+}
+
+.canvasDragging {
+  cursor: grabbing;
+}
+
+.centerBox {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transformWrap {
+  transform-origin: center center;
+  will-change: transform;
+  position: relative;
+}
+
+.image {
+  display: block;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.annotationLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+/* The one intentional round shape in the system — it marks a sky object. */
+.markerCircle {
+  border: 1px solid rgba(180, 217, 253, 0.85);
+  border-radius: 50%;
+}
+
+.markerLabel {
+  font: 400 8px/1.2 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-300);
+  background: var(--scrim-soft);
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+
+.overlayChips {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  display: flex;
+  gap: 1px;
+}
+
+.overlayChip {
+  background: var(--scrim);
+  border: 1px solid rgba(242, 242, 243, 0.24);
+  color: var(--color-bg);
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+}
+
+.hintChip {
+  color: var(--color-accent-400);
+}
+
+.minimap {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 150px;
+  border: 1px solid var(--dark-hairline-strong);
+  padding: 2px;
+  background: var(--scrim-soft);
+  cursor: crosshair;
+  line-height: 0;
+}
+
+.minimapInner {
+  position: relative;
+}
+
+.minimapImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  opacity: 0.55;
+}
+
+.minimapRect {
+  position: absolute;
+  border: 1px solid rgba(180, 217, 253, 0.9);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* ---- Bottom bar ---------------------------------------------------------- */
+
+.bottomBar {
+  padding: 11px 20px;
+  border-top: 1px solid var(--dark-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: none;
+}
+
+.bottomMeta {
+  font: 400 9.5px/1.3 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+.bottomActions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.bottomChip {
+  border: 1px solid rgba(242, 242, 243, 0.26);
+  color: var(--color-bg);
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 11px;
+  transition: background-color var(--transition), border-color var(--transition);
+}
+
+.bottomChip:hover {
+  background: rgba(148, 188, 227, 0.18);
+  border-color: var(--color-accent-400);
+}
+
+@media (max-width: 720px) {
+  .dimensions,
+  .bottomMeta {
+    display: none;
+  }
+  /* Named by the README: minimap hidden on small screens. */
+  .minimap {
+    display: none;
+  }
+  .topBar,
+  .bottomBar {
+    padding: 10px 12px;
+  }
+  .wordButton {
+    padding: 0 8px;
+    font-size: 12px;
+  }
+}
