@@ -148,9 +148,59 @@ export const annotations = sqliteTable(
     label: text("label").notNull(),
     xPct: real("x_pct").notNull(),
     yPct: real("y_pct").notNull(),
+    /**
+     * Circle diameter in "design pixels" — px at the design's nominal 1600px
+     * image width. The viewer scales it by (displayed width / 1600) so a marker
+     * encloses the same patch of sky on any screen. The design's 22–54px range
+     * is authored in exactly these units.
+     */
     radiusPx: real("radius_px").notNull().default(28),
+    /** manual | auto — `auto` rows came from a plate solve and want reviewing. */
+    source: text("source").notNull().default("manual"),
   },
   (t) => [index("annotations_frame_idx").on(t.frameId)],
+);
+
+/**
+ * One plate-solve attempt per frame (latest wins). Kept separate from `frames`
+ * so a solve can be re-run, and so its status can be polled by the admin
+ * without touching the frame record.
+ */
+export const plateSolves = sqliteTable(
+  "plate_solves",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    frameId: integer("frame_id")
+      .notNull()
+      .references(() => frames.id, { onDelete: "cascade" }),
+    // queued | solving | solved | failed
+    status: text("status").notNull().default("queued"),
+    submissionId: text("submission_id").notNull().default(""),
+    jobId: text("job_id").notNull().default(""),
+
+    // Calibration returned by the solver, kept so annotations can be
+    // regenerated later without re-uploading.
+    centerRa: real("center_ra"),
+    centerDec: real("center_dec"),
+    radiusDeg: real("radius_deg"),
+    pixScale: real("pix_scale"),
+    orientation: real("orientation"),
+
+    /**
+     * The full solved WCS as JSON (CRVAL/CRPIX/CD matrix + image size). Kept so
+     * markers can be regenerated — after a catalogue update, say — without
+     * re-uploading the image or re-solving.
+     */
+    wcsJson: text("wcs_json").notNull().default(""),
+
+    objectsFound: integer("objects_found").notNull().default(0),
+    annotationsWritten: integer("annotations_written").notNull().default(0),
+    message: text("message").notNull().default(""),
+
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(now),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [uniqueIndex("plate_solves_frame_idx").on(t.frameId)],
 );
 
 /** Site-level gear list; renders in both the article sidebar and /about. */
@@ -239,3 +289,4 @@ export type GearItem = typeof gearItems.$inferSelect;
 export type SiteStat = typeof siteStats.$inferSelect;
 export type SiteSettings = typeof siteSettings.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
+export type PlateSolve = typeof plateSolves.$inferSelect;

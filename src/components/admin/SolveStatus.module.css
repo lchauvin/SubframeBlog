@@ -1,0 +1,92 @@
+.panel {
+  border: 1px solid var(--color-divider);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panelActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent-100);
+}
+
+.panelFailed {
+  border-color: #c88;
+  background: #fbeaea;
+}
+
+.body {
+  min-width: 0;
+}
+
+.label {
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-neutral-400);
+  flex: none;
+}
+
+.dotActive {
+  background: var(--color-accent);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+.dotSolved {
+  background: var(--color-accent-700);
+}
+
+.dotFailed {
+  background: #a33;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.message {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--color-text);
+}
+
+.detail {
+  font: 400 9.5px/1.5 var(--font-mono);
+  color: var(--color-neutral-600);
+  margin-top: 6px;
+}
+
+.actions {
+  flex: none;
+}
+
+.button {
+  border: 1px solid var(--color-neutral-400);
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 7px 11px;
+  background: transparent;
+  transition: border-color var(--transition), color var(--transition),
+    background-color var(--transition);
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent-700);
+  background: var(--color-bg);
+}

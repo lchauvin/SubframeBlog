@@ -50,10 +50,34 @@ export function Viewer(props: ViewerProps) {
   const [view, setView] = useState<View>(FIT);
   const [dragging, setDragging] = useState(false);
   const [annotationsOn, setAnnotationsOn] = useState(true);
+  const [interacting, setInteracting] = useState(false);
 
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * `will-change: transform` is a hint that a change is imminent, not a
+   * permanent decoration. Held permanently it keeps this subtree on its own
+   * compositing layer, and Chrome scales that layer's existing texture on zoom
+   * rather than re-rasterising — so the image sits soft until something else
+   * invalidates the layer (toggling annotations did exactly that, which is why
+   * the picture appeared to sharpen on the first toggle).
+   *
+   * Raising it per gesture and dropping it once the gesture settles keeps pan
+   * and zoom smooth, then hands the frame back to the normal paint path so it
+   * re-rasterises crisply at whatever scale it landed on.
+   */
+  const beginInteraction = useCallback(() => {
+    setInteracting(true);
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => setInteracting(false), 220);
+  }, []);
+
+  useEffect(() => () => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+  }, []);
 
   const source = props.image.jpeg ?? props.image.webp ?? null;
   const aspect = source && source.height > 0 ? source.width / source.height : 1.71;
@@ -63,9 +87,19 @@ export function Viewer(props: ViewerProps) {
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
+
+    // Seed from a synchronous measurement rather than waiting on the observer:
+    // Chrome does not deliver ResizeObserver callbacks while the document is
+    // hidden, so a viewer opened in a background tab would otherwise sit blank
+    // until it was focused.
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      setCanvas({ w: rect.width, h: rect.height });
+    }
+
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      setCanvas({ w: width, h: height });
+      if (width > 0 && height > 0) setCanvas({ w: width, h: height });
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -121,6 +155,7 @@ export function Viewer(props: ViewerProps) {
    */
   const zoomBy = useCallback(
     (factor: number, anchor?: { x: number; y: number }) => {
+      beginInteraction();
       setView((prev) => {
         const next = clamp(prev.zoom * factor, 1, maxZoom);
         if (Math.abs(next - prev.zoom) < 1e-6) return prev;
@@ -136,11 +171,12 @@ export function Viewer(props: ViewerProps) {
         };
       });
     },
-    [maxZoom, canvas.w, canvas.h, clampPan],
+    [maxZoom, canvas.w, canvas.h, clampPan, beginInteraction],
   );
 
   const zoomToAbsolute = useCallback(
-    (target: number, anchor?: { x: number; y: number }) =>
+    (target: number, anchor?: { x: number; y: number }) => {
+      beginInteraction();
       setView((prev) => {
         const next = clamp(target, 1, maxZoom);
         if (Math.abs(next - prev.zoom) < 1e-6) return prev;
@@ -154,11 +190,15 @@ export function Viewer(props: ViewerProps) {
           zoom: next,
           ...clampPan(cx - (cx - prev.x) * k, cy - (cy - prev.y) * k, next),
         };
-      }),
-    [maxZoom, canvas.w, canvas.h, clampPan],
+      });
+    },
+    [maxZoom, canvas.w, canvas.h, clampPan, beginInteraction],
   );
 
-  const reset = useCallback(() => setView(FIT), []);
+  const reset = useCallback(() => {
+    beginInteraction();
+    setView(FIT);
+  }, [beginInteraction]);
   const close = useCallback(() => router.push(props.articleHref), [router, props.articleHref]);
 
   // Native listener so preventDefault actually applies — React's onWheel is passive.
@@ -233,6 +273,7 @@ export function Viewer(props: ViewerProps) {
     const dx = e.clientX - lastPoint.current.x;
     const dy = e.clientY - lastPoint.current.y;
     lastPoint.current = { x: e.clientX, y: e.clientY };
+    beginInteraction();
     setView((prev) => ({ ...prev, ...clampPan(prev.x + dx, prev.y + dy, prev.zoom) }));
   };
 
@@ -293,6 +334,9 @@ export function Viewer(props: ViewerProps) {
     .join(" · ");
 
   const ready = base.w > 0 && source !== null;
+
+  // Marker radii are authored against a nominal 1600px image width.
+  const markerScale = base.w > 0 ? base.w / 1600 : 1;
 
   return (
     <div className={styles.root}>
@@ -366,6 +410,8 @@ export function Viewer(props: ViewerProps) {
             className={styles.transformWrap}
             style={{
               transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+              // Raised only for the duration of a gesture — see beginInteraction.
+              willChange: interacting ? "transform" : "auto",
               width: ready ? base.w : undefined,
               height: ready ? base.h : undefined,
               opacity: ready ? 1 : 0,
@@ -391,10 +437,18 @@ export function Viewer(props: ViewerProps) {
                   >
                     {/* The circle scales with the image so it keeps enclosing the
                         same patch of sky; only the label is counter-scaled, so
-                        8px type stays 8px at any zoom. */}
+                        8px type stays 8px at any zoom.
+
+                        radiusPx is authored against a nominal 1600px-wide image
+                        (the design's 22-54px range), so it is rescaled to the
+                        actual fit width — otherwise the same marker would cover
+                        a different area of sky on a different monitor. */}
                     <span
                       className={styles.markerCircle}
-                      style={{ width: a.radiusPx, height: a.radiusPx }}
+                      style={{
+                        width: a.radiusPx * markerScale,
+                        height: a.radiusPx * markerScale,
+                      }}
                     />
                     <span
                       className={styles.markerLabel}

@@ -57,7 +57,9 @@ export function ImageUploader({
       } else {
         setMessage({
           ok: true,
-          text: `Done — master ${json.width}×${json.height}, ${json.derivatives} derivatives written.`,
+          text:
+            `Done — master ${json.width}×${json.height}, ${json.derivatives} derivatives written.` +
+            (json.solving ? " Plate solve started; see Viewer annotations below." : ""),
         });
         if (inputRef.current) inputRef.current.value = "";
         router.refresh();

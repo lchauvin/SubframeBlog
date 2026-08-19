@@ -4,9 +4,18 @@ import { notFound } from "next/navigation";
 import { Viewer } from "@/components/Viewer";
 import { formatMinutes } from "@/lib/format";
 import { getCurrentAdmin } from "@/server/auth/session";
-import { getFrameBySlug, getSiteSettings, pickImage } from "@/server/db/queries";
+import {
+  getFrameBySlug,
+  getSiteSettings,
+  listPublishedSlugs,
+  pickImage,
+} from "@/server/db/queries";
 
-export const dynamic = "force-dynamic";
+const IS_EXPORT = process.env.ASTROBLOG_EXPORT === "1";
+
+export async function generateStaticParams() {
+  return (await listPublishedSlugs()).map((slug) => ({ slug }));
+}
 
 export async function generateMetadata({
   params,
@@ -26,7 +35,10 @@ export default async function ViewerPage({
   const { slug } = await params;
   const frame = await getFrameBySlug(slug);
   if (!frame) notFound();
-  if (!frame.published && !(await getCurrentAdmin())) notFound();
+  if (!frame.published) {
+    if (IS_EXPORT) notFound();
+    if (!(await getCurrentAdmin())) notFound();
+  }
 
   const settings = await getSiteSettings();
 

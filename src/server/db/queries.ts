@@ -146,6 +146,15 @@ export async function getAdjacentFrames(frameId: number, limit = 4): Promise<Fra
   return others.map((r) => ({ ...r, images: images.get(r.id) ?? {} }));
 }
 
+/** Slugs of published frames — drives generateStaticParams for the export. */
+export async function listPublishedSlugs(): Promise<string[]> {
+  const rows = await db
+    .select({ slug: frames.slug })
+    .from(frames)
+    .where(eq(frames.published, true));
+  return rows.map((r) => r.slug);
+}
+
 /** Raw derivative rows, for the admin's upload summary (needs bytes/format). */
 export async function getFrameImageRows(frameId: number) {
   return db

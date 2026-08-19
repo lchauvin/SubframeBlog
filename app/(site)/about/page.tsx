@@ -13,8 +13,6 @@ import {
 
 import styles from "./about.module.css";
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = { title: "About & rig" };
 
 export default async function AboutPage() {

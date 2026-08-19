@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "export": "node --env-file-if-exists=.env --conditions react-server --import tsx scripts/export-site.ts",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "seed": "node --conditions react-server --import tsx scripts/seed.ts",
+    "check:astrometry": "node --conditions react-server --import tsx scripts/verify-astrometry.ts",
+    "build:catalog": "node --conditions react-server --import tsx scripts/build-catalog.ts",
+    "solve": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --conditions react-server --import tsx scripts/solve-frame.ts",
     "admin:password": "node --conditions react-server --import tsx scripts/admin-password.ts"
   },
   "dependencies": {

@@ -4,6 +4,8 @@ import { getCurrentAdmin } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { frames } from "@/server/db/schema";
 import { processMaster } from "@/server/media/derivatives";
+import { queueSolve } from "@/server/astrometry/solve";
+import { isConfigured } from "@/server/astrometry/client";
 
 /** Masters run 7–12MB, well past the ~1MB default cap on server actions —
  *  hence a route handler rather than an action. */
@@ -66,11 +68,17 @@ export async function POST(request: Request) {
       originalName: file.name,
     });
 
+    // Fire-and-forget: solving takes minutes, so it must not hold the upload
+    // response. Progress and outcome are tracked on the plate_solves row.
+    const solving = isConfigured();
+    if (solving) queueSolve(frameId);
+
     return Response.json({
       ok: true,
       width: result.master.width,
       height: result.master.height,
       derivatives: result.generated.length,
+      solving,
     });
   } catch (err) {
     return Response.json(

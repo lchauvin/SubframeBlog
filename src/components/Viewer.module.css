@@ -131,9 +131,13 @@
   justify-content: center;
 }
 
+/* `will-change: transform` is applied inline and only while a gesture is in
+   flight — see Viewer.tsx. Declaring it permanently here pins this subtree to
+   its own compositing layer, and Chrome then scales the existing texture on
+   zoom instead of re-rasterising, so the image renders soft until some other
+   change invalidates the layer. */
 .transformWrap {
   transform-origin: center center;
-  will-change: transform;
   position: relative;
 }
 

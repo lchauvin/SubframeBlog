@@ -18,12 +18,21 @@ import {
   getAdjacentFrames,
   getFrameBySlug,
   getGearItems,
+  listPublishedSlugs,
   pickImage,
 } from "@/server/db/queries";
 
 import styles from "./article.module.css";
 
-export const dynamic = "force-dynamic";
+/**
+ * A static export has no request context, so drafts cannot be previewed there —
+ * only published frames are emitted at all.
+ */
+const IS_EXPORT = process.env.ASTROBLOG_EXPORT === "1";
+
+export async function generateStaticParams() {
+  return (await listPublishedSlugs()).map((slug) => ({ slug }));
+}
 
 export async function generateMetadata({
   params,
@@ -49,7 +58,12 @@ export default async function ArticlePage({
   if (!frame) notFound();
 
   // Drafts stay invisible to the public but remain previewable while logged in.
-  if (!frame.published && !(await getCurrentAdmin())) notFound();
+  // The getCurrentAdmin() call reads cookies, which is why it must be skipped
+  // when exporting — a static page has no request to read them from.
+  if (!frame.published) {
+    if (IS_EXPORT) notFound();
+    if (!(await getCurrentAdmin())) notFound();
+  }
 
   const [adjacent, gear] = await Promise.all([getAdjacentFrames(frame.id), getGearItems()]);
 

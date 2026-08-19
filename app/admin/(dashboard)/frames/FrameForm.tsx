@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { RowEditor, type RowValue } from "@/components/admin/RowEditor";
 import { ImageUploader, type VariantSummary } from "@/components/admin/ImageUploader";
+import { SolveStatus } from "@/components/admin/SolveStatus";
 import { slugify } from "@/lib/format";
 
 import { deleteFrame, saveFrame, type FormState } from "../../actions";
@@ -394,6 +395,7 @@ export function FrameForm({
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Viewer annotations</h2>
+        {values.id ? <SolveStatus frameId={values.id} /> : null}
         <RowEditor
           name="annotationsJson"
           initialRows={annotations}
@@ -408,8 +410,10 @@ export function FrameForm({
           ]}
         />
         <p className={styles.hint} style={{ marginTop: 10 }}>
-          Percentages from the top-left of the image. Real positions should come from a plate
-          solve (WCS / Astrometry.net) rather than being eyeballed.
+          X and Y are percentages from the top-left of the image. Ø is the circle diameter in
+          design pixels — measured against a nominal 1600px-wide image, so a marker covers the
+          same patch of sky on any screen. These are filled in automatically by the plate solve
+          when you upload a master; edit or delete freely.
         </p>
       </section>
 

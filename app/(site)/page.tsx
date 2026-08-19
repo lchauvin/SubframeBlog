@@ -13,8 +13,6 @@ import {
 
 import styles from "./gallery.module.css";
 
-export const dynamic = "force-dynamic";
-
 export default async function LogPage() {
   const [frames, summary, settings] = await Promise.all([
     listPublishedFrames(),

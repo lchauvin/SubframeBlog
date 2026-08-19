@@ -137,7 +137,10 @@
   color: var(--color-text);
 }
 
-.right {
+/* Scoped to .table so it outranks `.table th`, which sets text-align:left and
+   would otherwise win on specificity and leave these headers misaligned
+   against their right-aligned columns. */
+.table .right {
   text-align: right;
 }
 

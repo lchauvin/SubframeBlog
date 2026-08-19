@@ -57,6 +57,7 @@ service-account*.json
 
 node_modules/
 .next/
+# The static export build output — regenerate with `npm run export`.
 out/
 build/
 dist/

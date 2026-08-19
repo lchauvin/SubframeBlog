@@ -1,0 +1,1 @@
+ALTER TABLE `plate_solves` ADD `wcs_json` text DEFAULT '' NOT NULL;
