@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 
 import { getFrameById, getFrameImageRows, pickImage } from "@/server/db/queries";
 
-import { FrameForm, type FrameFormValues } from "../FrameForm";
+import { FrameDraftImporter } from "../FrameDraftImporter";
+import type { FrameFormValues } from "../FrameForm";
 import styles from "../../../admin.module.css";
 
 export const dynamic = "force-dynamic";
@@ -62,8 +63,8 @@ export default async function EditFramePage({
         {frame.published ? "Published" : "Draft"} · /frame/{frame.slug}
       </p>
 
-      <FrameForm
-        values={values}
+      <FrameDraftImporter
+        defaults={values}
         initialMessage={created ? "Frame created. Upload its master below." : undefined}
         filters={frame.filters.map((f) => ({
           name: f.name,

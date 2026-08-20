@@ -54,6 +54,29 @@ const PLATE_FIELDS: { key: keyof FrameFormValues; label: string }[] = [
   { key: "plateSky", label: "Sky" },
 ];
 
+function toFilterEditorRows(filters: RowValue[]): RowValue[] {
+  return filters.map((row) => {
+    const totalMinutes = Math.max(0, Math.round(Number(row.hours ?? 0) * 60));
+    const { hours: _hours, ...rest } = row;
+    return {
+      ...rest,
+      integrationTime: `${Math.floor(totalMinutes / 60)}h${String(totalMinutes % 60).padStart(2, "0")}`,
+    };
+  });
+}
+
+function serializeFilterRows(rows: RowValue[]): RowValue[] {
+  return rows.map((row) => {
+    const match = /^(\d+)h([0-5]\d)$/.exec(String(row.integrationTime ?? ""));
+    const hours = match ? Number(match[1]) + Number(match[2]) / 60 : -1;
+    const { integrationTime: _integrationTime, ...rest } = row;
+    return {
+      ...rest,
+      hours,
+    };
+  });
+}
+
 function SaveButton() {
   const { pending } = useFormStatus();
   return (
@@ -306,7 +329,9 @@ export function FrameForm({
             className={`${styles.textarea} ${styles.textareaTall}`}
             defaultValue={values.bodyMarkdown}
           />
-          <span className={styles.hint}>Blank line between paragraphs. Prose, not a step list.</span>
+            <span className={styles.hint}>
+              3–4 sentences. Blank line between paragraphs if you split them.
+            </span>
         </div>
 
         <div className={styles.field} style={{ marginTop: 14 }}>
@@ -341,7 +366,8 @@ export function FrameForm({
         <h2 className={styles.sectionTitle}>Per-filter integration</h2>
         <RowEditor
           name="filtersJson"
-          initialRows={filters}
+          initialRows={toFilterEditorRows(filters)}
+          serializeRows={serializeFilterRows}
           addLabel="Add filter"
           emptyLabel="No filters — the bar chart will be empty."
           blankRow={{
@@ -349,19 +375,27 @@ export function FrameForm({
             subLengthSeconds: 300,
             keptFrames: 0,
             totalFrames: 0,
-            hours: 0,
+            integrationTime: "0h00",
           }}
           columns={[
             { key: "name", label: "Filter", width: "1.4fr", placeholder: "Hα 3nm" },
             { key: "subLengthSeconds", label: "Sub (s)", type: "number", width: "0.7fr" },
             { key: "keptFrames", label: "Kept", type: "number", width: "0.7fr" },
             { key: "totalFrames", label: "Total", type: "number", width: "0.7fr" },
-            { key: "hours", label: "Hours kept", type: "number", step: "0.01", width: "0.9fr" },
+            {
+              key: "integrationTime",
+              label: "Total integration time",
+              width: "1.2fr",
+              placeholder: "6h50",
+              pattern: "[0-9]+h[0-5][0-9]",
+              title: "Use hours and two-digit minutes, for example 6h50.",
+              required: true,
+            },
           ]}
         />
         <p className={styles.hint} style={{ marginTop: 10 }}>
           These are authoritative — the bars, the legend and the totals all read from here.
-          Rejected time is derived as (hours ÷ kept) × (total − kept).
+          Rejected time is derived from the kept duration and frame counts.
         </p>
       </section>
 

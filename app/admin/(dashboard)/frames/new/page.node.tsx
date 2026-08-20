@@ -1,4 +1,5 @@
-import { FrameForm, type FrameFormValues } from "../FrameForm";
+import type { FrameFormValues } from "../FrameForm";
+import { FrameDraftImporter } from "../FrameDraftImporter";
 import styles from "../../../admin.module.css";
 
 export const dynamic = "force-dynamic";
@@ -29,11 +30,11 @@ export default function NewFramePage() {
     plateCoordinates: "",
     platePalette: "",
     plateSessions: "",
-    plateSky: "",
+    plateSky: "Bortle 9",
     // Pre-filled from the real rig, since they rarely change between frames.
-    opticsLabel: "250mm f/4.9",
-    sensorLabel: "2.9µm",
-    arcsecPerPx: "2.39",
+    opticsLabel: "RedCat 51 WIFD",
+    sensorLabel: "QHY Minicam8M (IMX585)",
+    arcsecPerPx: "2.393",
     published: false,
   };
 
@@ -42,14 +43,7 @@ export default function NewFramePage() {
       <h1 className={styles.pageTitle}>New frame</h1>
       <p className={styles.pageSub}>Save first, then upload the master</p>
 
-      <FrameForm
-        values={values}
-        filters={[]}
-        nights={[]}
-        annotations={[]}
-        imageVariants={[]}
-        previewSrc={null}
-      />
+      <FrameDraftImporter defaults={values} />
     </>
   );
 }

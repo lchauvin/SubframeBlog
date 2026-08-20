@@ -35,6 +35,8 @@ so it stays out of shell history).
 | `npm run seed` | **Destructive** — clears content tables and reloads the design frames |
 | `npm run admin:password` | Create / reset the admin account |
 | `npm run check:astrometry` | Checks the plate-solve logic that needs no API key (coordinate parsing, search hints, WCS projection, catalogue placement) |
+| `npm run import:wbpp -- <log>` | Generate a reviewable new-frame JSON draft from a PixInsight WBPP log |
+| `npm run check:wbpp` | Run the standard-library WBPP importer tests |
 | `npm run build:catalog` | Rebuilds `catalog/deep-sky.json` from OpenNGC + VizieR. Only needed to refresh the data |
 | `npm run solve -- <slug>` | Plate-solves one frame (`--all` for every frame) |
 | `npm run solve -- --reannotate <slug>` | Regenerates markers from a solve that already happened — no upload, no API key |
@@ -43,6 +45,61 @@ so it stays out of shell history).
 **Do not run `npm run build` while `npm run dev` is running** — they share
 `.next` and the dev server will start serving pages without CSS. If that
 happens, stop both, `rm -rf .next`, and restart.
+
+## Importing a WBPP frame draft
+
+`scripts/import-wbpp.py` reads a PixInsight Weighted Batch Preprocessing log and
+writes JSON shaped like the New frame admin form. It does not change the
+database. The deterministic pass ignores calibration frames, totals acquired
+lights by filter and `NIGHT`, reads final active counts from ImageIntegration,
+builds per-night rejection rows when the integrated file list can be mapped,
+infers the palette, and extracts solved coordinates, pixel size and image scale.
+Generated integration durations use separate integer hours/minutes fields, and
+rejected night rows deliberately leave `reason` blank for manual review. The
+admin per-filter editor presents one Total integration time input in `6h50`
+format, converting to the database's decimal-hour column only when submitted.
+
+Python 3.8 or newer and a local Ollama installation are sufficient; the script
+has no Python package dependencies. If `OLLAMA_MODEL` is unset, the importer
+uses a model already pulled in the local Ollama daemon. PowerShell example:
+
+```powershell
+npm run import:wbpp -- `
+  "G:\Astro\V1769 Cyg (WR 134)\WBPP\logs\20260712173704.log" `
+  --bandwidth 3nm `
+  --pretty --output "wr-134-frame.json"
+```
+
+The target hint normally comes from the directory immediately before `WBPP`;
+use `--target "WR 134"` when that folder is ambiguous. SIMBAD is queried online
+to verify the canonical object, all returned aliases, object type, coordinates
+and available distance measurements, which are converted to light years.
+Wikidata supplies the constellation (and a fallback distance from claim P2583)
+after its target coordinates are checked against SIMBAD. English Wikipedia fills
+in a popular name and, when the catalogs have none, a distance from the infobox.
+Ollama receives those verified facts and writes a 3–4 sentence poetic Body
+for the Target & processing section. It is not trusted for constellation,
+distance, or common name. Any service can fail without losing the WBPP results: the
+JSON `diagnostics.warnings` array records what was skipped.
+
+Useful controls:
+
+- `--no-simbad` / `--no-ollama` for an acquisition-only, offline draft.
+- `--bandwidth`, `--optics`, `--sensor`, `--sky`, `--frame-number` and
+  `--revision` for values WBPP does not reliably contain. Optics, sensor and
+  arcsec/px default to the RedCat 51 WIFD + QHY MiniCam8M (2.9 µm at 250 mm).
+- `OLLAMA_HOST` (default `http://localhost:11434`), `OLLAMA_TIMEOUT` (120 s),
+  `SIMBAD_TAP_URL`, `WIKIDATA_API_URL`, `WIKIPEDIA_API_URL` and
+  `SIMBAD_TIMEOUT` (20 s) for endpoint overrides.
+- Omit `--output` to print compact JSON to stdout.
+
+Open `/admin/frames/new` or an existing frame's edit page, choose the generated
+file under **Import frame draft**, and review the populated fields before saving.
+Importing only changes the browser form; it does not write to SQLite. On an
+existing frame the slug, publish state and uploaded images are left unchanged. The full,
+potentially long SIMBAD identifier list is retained under
+`diagnostics.allCatalogIdentifiers`; `frame.plateCatalog` contains a concise
+selection that fits the admin field.
 
 ## Deploying to Hostinger
 

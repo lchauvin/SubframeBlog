@@ -9,6 +9,11 @@ export type RowColumn = {
   label: string;
   type?: "text" | "number" | "date";
   step?: string;
+  min?: number;
+  max?: number;
+  pattern?: string;
+  title?: string;
+  required?: boolean;
   width?: string;
   placeholder?: string;
 };
@@ -26,6 +31,7 @@ export function RowEditor({
   initialRows,
   rows: controlledRows,
   onRowsChange,
+  serializeRows,
   blankRow,
   addLabel,
   emptyLabel = "No rows.",
@@ -35,6 +41,7 @@ export function RowEditor({
   initialRows: RowValue[];
   rows?: RowValue[];
   onRowsChange?: (rows: RowValue[]) => void;
+  serializeRows?: (rows: RowValue[]) => RowValue[];
   blankRow: RowValue;
   addLabel: string;
   emptyLabel?: string;
@@ -73,7 +80,11 @@ export function RowEditor({
 
   return (
     <div>
-      <input type="hidden" name={name} value={JSON.stringify(rows)} />
+      <input
+        type="hidden"
+        name={name}
+        value={JSON.stringify(serializeRows ? serializeRows(rows) : rows)}
+      />
 
       <div className={styles.wrap}>
         <div className={styles.head} style={{ gridTemplateColumns: template }}>
@@ -95,6 +106,11 @@ export function RowEditor({
                 className={styles.input}
                 type={c.type ?? "text"}
                 step={c.step}
+                min={c.min}
+                max={c.max}
+                pattern={c.pattern}
+                title={c.title}
+                required={c.required}
                 placeholder={c.placeholder}
                 value={String(row[c.key] ?? "")}
                 onChange={(e) => update(i, c.key, e.target.value)}

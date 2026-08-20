@@ -1,0 +1,57 @@
+[2026-07-12 17:37:04] Weighted Batch Preprocessing 3.0.1
+[2026-07-12 17:37:04] * Begin calibration of Flat frames
+[2026-07-12 17:37:04] Group of 99 Light frames (99 active)
+[2026-07-12 17:37:04] Filter   : SII
+[2026-07-12 17:37:04] Exposure : 10.00s
+[2026-07-12 17:37:04] Keywords : [NIGHT: 2026-01-01]
+[2026-07-12 17:39:17] * Begin calibration of Light frames
+[2026-07-12 17:39:17] Group of 3 Light frames (3 active)
+[2026-07-12 17:39:17] Filter   : Ha
+[2026-07-12 17:39:17] Exposure : 300.00s
+[2026-07-12 17:39:17] Keywords : [NIGHT: 2026-04-27]
+[2026-07-12 17:39:17] [000] G:/Astro/Target/WBPP/source/2026-04-28_00-00-00__Ha__0000.fits
+[2026-07-12 17:39:17] [001] G:/Astro/Target/WBPP/source/2026-04-28_00-05-00__Ha__0001.fits
+[2026-07-12 17:39:17] [002] G:/Astro/Target/WBPP/source/2026-04-28_00-10-00__Ha__0002.fits
+[2026-07-12 17:40:00] Group of 2 Light frames (2 active)
+[2026-07-12 17:40:00] Filter   : Ha
+[2026-07-12 17:40:00] Exposure : 300.00s
+[2026-07-12 17:40:00] Keywords : [NIGHT: 2026-05-21]
+[2026-07-12 17:40:00] [000] G:/Astro/Target/WBPP/source/2026-05-22_00-00-00__Ha__0000.fits
+[2026-07-12 17:40:00] [001] G:/Astro/Target/WBPP/source/2026-05-22_00-05-00__Ha__0001.fits
+[2026-07-12 17:41:00] Group of 4 Light frames (4 active)
+[2026-07-12 17:41:00] Filter   : OIII
+[2026-07-12 17:41:00] Exposure : 300.00s
+[2026-07-12 17:41:00] Keywords : [NIGHT: 2026-06-07]
+[2026-07-12 17:41:00] [000] G:/Astro/Target/WBPP/source/2026-06-08_00-00-00__OIII__0000.fits
+[2026-07-12 17:41:00] [001] G:/Astro/Target/WBPP/source/2026-06-08_00-05-00__OIII__0001.fits
+[2026-07-12 17:41:00] [002] G:/Astro/Target/WBPP/source/2026-06-08_00-10-00__OIII__0002.fits
+[2026-07-12 17:41:00] [003] G:/Astro/Target/WBPP/source/2026-06-08_00-15-00__OIII__0003.fits
+[2026-07-12 18:16:10] * Begin integration of Light frames
+[2026-07-12 18:16:10] Group of 5 Light frames (3 active)
+[2026-07-12 18:16:10] Filter   : Ha
+[2026-07-12 18:16:10] Exposure : 300.00s
+[2026-07-12 18:16:10] II.images = [
+[2026-07-12 18:16:10] [true, "G:/Astro/Target/WBPP/registered/2026-04-28_00-00-00__Ha__0000_c_r.xisf"]
+[2026-07-12 18:16:10] [true, "G:/Astro/Target/WBPP/registered/2026-04-28_00-05-00__Ha__0001_c_r.xisf"]
+[2026-07-12 18:16:10] [true, "G:/Astro/Target/WBPP/registered/2026-05-22_00-00-00__Ha__0000_c_r.xisf"]
+[2026-07-12 18:17:00] * End integration of Light frames
+[2026-07-12 18:17:01] * Begin integration of Light frames
+[2026-07-12 18:17:01] Group of 4 Light frames (2 active)
+[2026-07-12 18:17:01] Filter   : OIII
+[2026-07-12 18:17:01] Exposure : 300.00s
+[2026-07-12 18:17:01] II.images = [
+[2026-07-12 18:17:01] [true, "G:/Astro/Target/WBPP/registered/2026-06-08_00-00-00__OIII__0000_c_r.xisf"]
+[2026-07-12 18:17:01] [true, "G:/Astro/Target/WBPP/registered/2026-06-08_00-05-00__OIII__0001_c_r.xisf"]
+[2026-07-12 18:17:02] * End integration of Light frames
+[2026-07-12 18:24:01] * Using cached metadata: ra=302.52805460 deg dec=+36.18060715 deg xpixsz=2.90 um (scale=1:1)
+[2026-07-12 18:24:01] Center coordinates: RA = 20 10 06.733, Dec = +36 10 50.19
+[2026-07-12 18:24:01] Resolution: 2.410 as/px
+[2026-07-12 18:36:05] ******************** LIGHT FRAMES CALIBRATION ********************
+[2026-07-12 18:36:05] Group of 3 Light frames (3 active)
+[2026-07-12 18:36:05] Filter   : Ha
+[2026-07-12 18:36:05] Exposure : 300.00s
+[2026-07-12 18:36:05] Keywords : [NIGHT: 2026-04-27]
+[2026-07-12 18:36:05] ******************** IMAGE INTEGRATION ********************
+[2026-07-12 18:36:05] Group of 5 Light frames (3 active)
+[2026-07-12 18:36:05] Filter   : Ha
+[2026-07-12 18:36:05] Exposure : 300.00s

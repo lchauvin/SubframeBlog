@@ -18,6 +18,8 @@
     "check:astrometry": "node --conditions react-server --import tsx scripts/verify-astrometry.ts",
     "check:deploy": "node --conditions react-server --import tsx scripts/verify-deploy.ts",
     "check:server": "node scripts/smoke-server.mjs",
+    "check:wbpp": "python -m unittest discover -s scripts/tests -p test_*.py -v",
+    "import:wbpp": "python scripts/import-wbpp.py",
     "package:hostinger": "node scripts/package-hostinger.mjs",
     "build:catalog": "node --conditions react-server --import tsx scripts/build-catalog.ts",
     "solve": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --conditions react-server --import tsx scripts/solve-frame.ts",
@@ -26,13 +28,13 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.8.0",
-    "drizzle-orm": "^0.38.0",
+    "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.32.0",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
-    "sharp": "^0.33.5",
+    "sharp": "0.35.3",
     "zod": "^3.24.0"
   },
   "devDependencies": {
@@ -41,8 +43,13 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "archiver": "^8.0.0",
-    "drizzle-kit": "^0.30.0",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.12",
     "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "postcss": "8.5.26",
+    "esbuild": "0.28.2",
+    "sharp": "0.35.3"
   }
 }
