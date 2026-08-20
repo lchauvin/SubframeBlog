@@ -7,15 +7,11 @@ import { getCurrentAdmin } from "@/server/auth/session";
 import {
   getFrameBySlug,
   getSiteSettings,
-  listPublishedSlugs,
   pickImage,
 } from "@/server/db/queries";
 
 const IS_EXPORT = process.env.ASTROBLOG_EXPORT === "1";
-
-export async function generateStaticParams() {
-  return (await listPublishedSlugs()).map((slug) => ({ slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -23,11 +19,16 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const frame = await getFrameBySlug(slug);
-  return { title: frame ? `${frame.catalogId} — full resolution` : "Not found" };
+  try {
+    const frame = await getFrameBySlug(slug);
+    return { title: frame ? `${frame.catalogId} — full resolution` : "Not found" };
+  } catch (error) {
+    console.error(`[astroblog] Fullscreen metadata failed for frame "${slug}".`, error);
+    throw error;
+  }
 }
 
-export default async function ViewerPage({
+async function renderViewerPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -70,4 +71,19 @@ export default async function ViewerPage({
       contactHref={settings?.contactHref ?? ""}
     />
   );
+}
+
+export default async function ViewerPage(props: {
+  params: Promise<{ slug: string }>;
+}) {
+  try {
+    return await renderViewerPage(props);
+  } catch (error) {
+    let slug = "<unresolved>";
+    try {
+      slug = (await props.params).slug;
+    } catch {}
+    console.error(`[astroblog] Fullscreen render failed for frame "${slug}".`, error);
+    throw error;
+  }
 }

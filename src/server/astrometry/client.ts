@@ -10,6 +10,8 @@ import "server-only";
  */
 
 const BASE = process.env.ASTROMETRY_API_URL || "https://nova.astrometry.net/api";
+const REQUEST_TIMEOUT_MS = 30_000;
+const UPLOAD_TIMEOUT_MS = 90_000;
 
 export const isConfigured = () => Boolean(process.env.ASTROMETRY_API_KEY);
 
@@ -50,13 +52,17 @@ async function post(path: string, payload: unknown): Promise<Record<string, unkn
     method: "POST",
     body,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) throw new AstrometryError(`${path} returned HTTP ${res.status}`);
   return (await res.json()) as Record<string, unknown>;
 }
 
 async function get(path: string): Promise<Record<string, unknown>> {
-  const res = await fetch(`${BASE}${path}`, { headers: { Accept: "application/json" } });
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
   if (!res.ok) throw new AstrometryError(`${path} returned HTTP ${res.status}`);
   return (await res.json()) as Record<string, unknown>;
 }
@@ -113,7 +119,11 @@ export async function uploadImage(
   form.append("request-json", JSON.stringify(request));
   form.append("file", new Blob([new Uint8Array(file)], { type: "image/jpeg" }), filename);
 
-  const res = await fetch(`${BASE}/upload`, { method: "POST", body: form });
+  const res = await fetch(`${BASE}/upload`, {
+    method: "POST",
+    body: form,
+    signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+  });
   if (!res.ok) throw new AstrometryError(`Upload returned HTTP ${res.status}`);
 
   const json = (await res.json()) as Record<string, unknown>;

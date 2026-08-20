@@ -205,8 +205,38 @@ if (wcs) {
       Boolean(ic1871) && Math.abs(ic1871!.xPct - 63.03) < 1 && Math.abs(ic1871!.yPct - 77.36) < 1,
       true,
     );
-    check("no marker exceeds the size cap", markers.every((m) => m.radiusPx <= 64), true);
+    check(
+      "catalogue diameters are not flattened to 64px",
+      markers.some((m) => m.radiusPx > 64),
+      true,
+    );
+    check("corrupt sizes retain a safety cap", markers.every((m) => m.radiusPx <= 3200), true);
     check("markers are within the frame", markers.every((m) => m.xPct > 0 && m.xPct < 100), true);
+
+    console.log("\n== cross-catalogue alias and real diameter regression ==");
+    const aliasImage = { width: 800, height: 600 };
+    const aliasWcs = {
+      crval1: 320.27,
+      crval2: 38.75,
+      crpix1: 400.5,
+      crpix2: 300.5,
+      cd11: -3 / 3600,
+      cd12: 0,
+      cd21: 0,
+      cd22: 3 / 3600,
+      imageWidth: aliasImage.width,
+      imageHeight: aliasImage.height,
+    };
+    const aliasMarkers = markersForFrame(aliasWcs, aliasImage, {
+      limit: 50,
+      minFractionOfWidth: 0,
+      targetName: "Sh2-114",
+    }).markers;
+    const aliasLabels = aliasMarkers.map((m) => m.label);
+    const sh2114 = aliasMarkers.find((m) => m.label === "Sh2-114");
+    check("Sh2-114 survives as the preferred designation", Boolean(sh2114), true);
+    check("LBN 347 alias is merged into Sh2-114", aliasLabels.includes("LBN 347"), false);
+    check("Sh2-114 uses its catalogue diameter, not 64px", (sh2114?.radiusPx ?? 0) > 64, true);
   }
 }
 

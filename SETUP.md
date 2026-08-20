@@ -38,6 +38,7 @@ so it stays out of shell history).
 | `npm run build:catalog` | Rebuilds `catalog/deep-sky.json` from OpenNGC + VizieR. Only needed to refresh the data |
 | `npm run solve -- <slug>` | Plate-solves one frame (`--all` for every frame) |
 | `npm run solve -- --reannotate <slug>` | Regenerates markers from a solve that already happened — no upload, no API key |
+| `npm run verify:deploy` | Typecheck, astrometry/runtime checks, production build and server health smoke test |
 
 **Do not run `npm run build` while `npm run dev` is running** — they share
 `.next` and the dev server will start serving pages without CSS. If that
@@ -45,8 +46,18 @@ happens, stop both, `rm -rf .next`, and restart.
 
 ## Deploying to Hostinger
 
-The public site ships as **plain static files** — no Node on the server, so it
-works on any Hostinger plan. You author locally; the server only serves.
+The primary production target is now a **Hostinger Node.js web app**. It runs the
+normal Next.js server, so `/admin`, uploads, publishing and plate solving work
+online without rebuilding the site. Follow `DEPLOY.md` for the complete hPanel,
+persistent-storage, first-admin and verification checklist.
+
+Production requires an absolute `ASTROBLOG_DATA_DIR` outside Hostinger's
+replaceable `nodejs/` deployment directory. Runtime startup creates the data
+layout, applies migrations and creates the first admin from temporary
+`ASTROBLOG_ADMIN_USERNAME` / `ASTROBLOG_ADMIN_PASSWORD` environment variables.
+
+The static export remains available as a separate fallback for hosting without
+Node:
 
 ```bash
 npm run dev -- --port 3003     # author frames, upload masters, solve
@@ -71,13 +82,14 @@ The `/media/...` URLs are identical in both modes — served by a route handler
 under `npm run dev`, and as real files in the export — so nothing in the pages
 has to change between them.
 
-**What you give up.** The admin isn't reachable from the web, and publishing a
-frame means `npm run export` plus an upload rather than just hitting Save.
-Drafts can't be previewed in the export either; only published frames are
-emitted at all.
+**What static export gives up.** The admin isn't reachable from the web, and
+publishing a frame means `npm run export` plus an upload. Drafts can't be
+previewed in the export either; only published frames are emitted.
 
-**Keep `data/` backed up.** It is the only copy of the database and your
-masters, it is gitignored, and the export does not contain it.
+**Keep the configured data directory backed up.** It is the only copy of the
+SQLite database and masters, it is gitignored, and the export does not contain
+it. `/admin/diagnostics` can download a consistent DB snapshot; media needs a
+separate Hostinger/File Manager backup.
 
 ## Layout
 
@@ -102,7 +114,7 @@ exist in a static export, and every protected surface already checks for itself
 — so removing it cost no protection. Login is rate-limited to 5 attempts per
 15 min per username+IP, with a generic failure message.
 
-**Images.** Uploading a master writes `master` plus `viewer` (4000px),
+**Images.** Uploading a master writes `master` plus `viewer` (6000px),
 `article` (1600px), `thumb` (600px) in WebP + JPEG, and `download` (2048px,
 JPEG only, backing the viewer's chip). Dimensions are probed per file, never
 assumed. Uploads go through `app/admin/upload/route.ts`, not a server action —
@@ -146,9 +158,10 @@ into that frame's viewer annotations, ready to review.
   as yours (`manual`), and a later re-solve replaces only the still-auto rows
   and skips anything whose label you already have — so re-solving never
   duplicates a marker you kept.
-- **Timing.** Solves take ~30s to a few minutes on the public queue, so it runs
-  fire-and-forget with status on the `plate_solves` row, polled by the admin.
-  A server restart mid-solve loses the run; press "Solve again".
+- **Timing.** Solves take ~30s to a few minutes on the public queue. Submission
+  and job IDs are persisted, then a small worker advances the solve in short
+  polling steps. A server restart resumes queued/solving rows; opening the frame
+  editor also advances a pending solve.
 
 **Acquisition numbers.** Per-filter kept/total/hours are stored and
 authoritative; the night log is optional display detail and nothing is
@@ -196,10 +209,7 @@ working pagination behind the "Load 2021–2024" placeholder, DZI tiling,
 account creation / password reset / multi-user, click-to-place annotation
 editing, RSS, and any phone layout beyond the reductions the README names.
 
-Live admin on the public host — the deployment model is deliberately
-author-locally, serve-statically (see Deploying above).
-
-Also not built, but worth knowing as the natural next step: a **local** solver.
+Also not built, but worth knowing as a possible future step: a **local** solver.
 ASTAP or a local astrometry.net install would keep images off third-party
 servers and solve in seconds, but returns only a WCS — the catalogue
 cone-search and RA/Dec-to-pixel projection would have to be written here. The

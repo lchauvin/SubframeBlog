@@ -8,6 +8,7 @@ import styles from "../admin.module.css";
 const LINKS = [
   { href: "/admin", label: "Frames" },
   { href: "/admin/site", label: "Site & rig" },
+  { href: "/admin/diagnostics", label: "Diagnostics" },
 ];
 
 export function AdminNav() {
@@ -16,7 +17,10 @@ export function AdminNav() {
   return (
     <>
       {LINKS.map((l) => {
-        const active = l.href === "/admin" ? !pathname.startsWith("/admin/site") : pathname.startsWith(l.href);
+        const active =
+          l.href === "/admin"
+            ? pathname === "/admin" || pathname.startsWith("/admin/frames")
+            : pathname.startsWith(l.href);
         return (
           <Link
             key={l.href}

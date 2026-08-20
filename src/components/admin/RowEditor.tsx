@@ -24,6 +24,8 @@ export function RowEditor({
   name,
   columns,
   initialRows,
+  rows: controlledRows,
+  onRowsChange,
   blankRow,
   addLabel,
   emptyLabel = "No rows.",
@@ -31,11 +33,26 @@ export function RowEditor({
   name: string;
   columns: RowColumn[];
   initialRows: RowValue[];
+  rows?: RowValue[];
+  onRowsChange?: (rows: RowValue[]) => void;
   blankRow: RowValue;
   addLabel: string;
   emptyLabel?: string;
 }) {
-  const [rows, setRows] = useState<RowValue[]>(initialRows);
+  const [localRows, setLocalRows] = useState<RowValue[]>(initialRows);
+  const rows = controlledRows ?? localRows;
+
+  const setRows = (update: (previous: RowValue[]) => RowValue[]) => {
+    if (controlledRows !== undefined) {
+      onRowsChange?.(update(controlledRows));
+      return;
+    }
+    setLocalRows((previous) => {
+      const next = update(previous);
+      onRowsChange?.(next);
+      return next;
+    });
+  };
 
   const template = useMemo(
     () => `${columns.map((c) => c.width ?? "1fr").join(" ")} 60px`,

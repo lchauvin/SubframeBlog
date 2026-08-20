@@ -18,7 +18,6 @@ import {
   getAdjacentFrames,
   getFrameBySlug,
   getGearItems,
-  listPublishedSlugs,
   pickImage,
 } from "@/server/db/queries";
 
@@ -29,10 +28,7 @@ import styles from "./article.module.css";
  * only published frames are emitted at all.
  */
 const IS_EXPORT = process.env.ASTROBLOG_EXPORT === "1";
-
-export async function generateStaticParams() {
-  return (await listPublishedSlugs()).map((slug) => ({ slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -40,15 +36,20 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const frame = await getFrameBySlug(slug);
-  if (!frame) return { title: "Not found" };
-  return {
-    title: `${frame.catalogId}${frame.commonName ? ` — ${frame.commonName}` : ""}`,
-    description: frame.blurb,
-  };
+  try {
+    const frame = await getFrameBySlug(slug);
+    if (!frame) return { title: "Not found" };
+    return {
+      title: `${frame.catalogId}${frame.commonName ? ` — ${frame.commonName}` : ""}`,
+      description: frame.blurb,
+    };
+  } catch (error) {
+    console.error(`[astroblog] Metadata failed for frame "${slug}".`, error);
+    throw error;
+  }
 }
 
-export default async function ArticlePage({
+async function renderArticlePage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -215,4 +216,19 @@ export default async function ArticlePage({
       ) : null}
     </main>
   );
+}
+
+export default async function ArticlePage(props: {
+  params: Promise<{ slug: string }>;
+}) {
+  try {
+    return await renderArticlePage(props);
+  } catch (error) {
+    let slug = "<unresolved>";
+    try {
+      slug = (await props.params).slug;
+    } catch {}
+    console.error(`[astroblog] Article render failed for frame "${slug}".`, error);
+    throw error;
+  }
 }

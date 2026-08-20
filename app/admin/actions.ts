@@ -46,7 +46,7 @@ const annotationSchema = z.object({
   label: text(80).min(1),
   xPct: z.coerce.number().min(0).max(100),
   yPct: z.coerce.number().min(0).max(100),
-  radiusPx: z.coerce.number().min(1).max(600),
+  radiusPx: z.coerce.number().min(1).max(3200),
 });
 
 const frameSchema = z.object({

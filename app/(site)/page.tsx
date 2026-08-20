@@ -10,10 +10,12 @@ import {
   listPublishedFrames,
   pickImage,
 } from "@/server/db/queries";
+import { useRequestTimeRendering } from "@/server/rendering";
 
 import styles from "./gallery.module.css";
 
 export default async function LogPage() {
+  await useRequestTimeRendering();
   const [frames, summary, settings] = await Promise.all([
     listPublishedFrames(),
     getLogSummary(),

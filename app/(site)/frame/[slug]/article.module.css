@@ -87,7 +87,7 @@
 .chips {
   position: absolute;
   left: 18px;
-  bottom: 18px;
+  top: 18px;
   display: flex;
   gap: 1px;
 }
@@ -106,14 +106,14 @@
 .zoomButton {
   position: absolute;
   right: 18px;
-  bottom: 18px;
+  top: 18px;
   background: var(--color-accent);
   color: var(--color-bg);
   font-family: var(--font-heading);
-  font-size: 14px;
+  font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 8px 16px;
+  padding: 5px 10px;
   transition: background-color var(--transition);
 }
 

@@ -95,24 +95,36 @@ export type FullFrame = Frame & {
 };
 
 async function hydrate(frame: Frame): Promise<FullFrame> {
-  const [filterRows, nightRows, annotationRows, images] = await Promise.all([
-    db
-      .select()
-      .from(frameFilters)
-      .where(eq(frameFilters.frameId, frame.id))
-      .orderBy(asc(frameFilters.position), asc(frameFilters.id)),
-    db
-      .select()
-      .from(nights)
-      .where(eq(nights.frameId, frame.id))
-      .orderBy(asc(nights.nightDate), asc(nights.position), asc(nights.id)),
-    db
-      .select()
-      .from(annotations)
-      .where(eq(annotations.frameId, frame.id))
-      .orderBy(asc(annotations.position), asc(annotations.id)),
-    imageSetsFor([frame.id]),
-  ]);
+  let filterRows: (typeof frameFilters.$inferSelect)[];
+  let nightRows: (typeof nights.$inferSelect)[];
+  let annotationRows: (typeof annotations.$inferSelect)[];
+  let images: Map<number, ImageSet>;
+  try {
+    [filterRows, nightRows, annotationRows, images] = await Promise.all([
+      db
+        .select()
+        .from(frameFilters)
+        .where(eq(frameFilters.frameId, frame.id))
+        .orderBy(asc(frameFilters.position), asc(frameFilters.id)),
+      db
+        .select()
+        .from(nights)
+        .where(eq(nights.frameId, frame.id))
+        .orderBy(asc(nights.nightDate), asc(nights.position), asc(nights.id)),
+      db
+        .select()
+        .from(annotations)
+        .where(eq(annotations.frameId, frame.id))
+        .orderBy(asc(annotations.position), asc(annotations.id)),
+      imageSetsFor([frame.id]),
+    ]);
+  } catch (error) {
+    console.error(
+      `[astroblog] Failed to hydrate frame ${frame.id} (${frame.slug}).`,
+      error,
+    );
+    throw error;
+  }
 
   return {
     ...frame,

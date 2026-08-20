@@ -1,10 +1,10 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 import { getCurrentAdmin } from "@/server/auth/session";
 import { db } from "@/server/db/client";
-import { frames } from "@/server/db/schema";
+import { annotations, frames } from "@/server/db/schema";
 import { isConfigured } from "@/server/astrometry/client";
-import { getPlateSolve, queueSolve } from "@/server/astrometry/solve";
+import { advanceSolve, getPlateSolve, retrySolve } from "@/server/astrometry/solve";
 
 /** Current solve state for one frame. Polled by the admin while work is in flight. */
 export async function GET(request: Request) {
@@ -17,7 +17,24 @@ export async function GET(request: Request) {
     return Response.json({ error: "Missing frame id." }, { status: 400 });
   }
 
-  const solve = await getPlateSolve(frameId);
+  // Besides reporting status, polling advances one durable solver step. This
+  // lets the admin recover a queued job even if the host suspended its timer.
+  let solve = await getPlateSolve(frameId);
+  if (solve?.status === "queued" || solve?.status === "solving") {
+    await advanceSolve(frameId);
+    solve = await getPlateSolve(frameId);
+  }
+
+  const markerRows = await db
+    .select({
+      label: annotations.label,
+      xPct: annotations.xPct,
+      yPct: annotations.yPct,
+      radiusPx: annotations.radiusPx,
+    })
+    .from(annotations)
+    .where(eq(annotations.frameId, frameId))
+    .orderBy(asc(annotations.position), asc(annotations.id));
 
   return Response.json({
     configured: isConfigured(),
@@ -30,6 +47,7 @@ export async function GET(request: Request) {
     pixScale: solve?.pixScale ?? null,
     orientation: solve?.orientation ?? null,
     updatedAt: solve?.updatedAt ?? null,
+    annotations: markerRows,
   });
 }
 
@@ -69,6 +87,6 @@ export async function POST(request: Request) {
     .get();
   if (!frame) return Response.json({ error: "That frame no longer exists." }, { status: 404 });
 
-  queueSolve(frame.id);
+  await retrySolve(frame.id);
   return Response.json({ ok: true });
 }

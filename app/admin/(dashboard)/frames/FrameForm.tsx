@@ -7,6 +7,7 @@ import Link from "next/link";
 import { RowEditor, type RowValue } from "@/components/admin/RowEditor";
 import { ImageUploader, type VariantSummary } from "@/components/admin/ImageUploader";
 import { SolveStatus } from "@/components/admin/SolveStatus";
+import { AnnotationPreview } from "@/components/admin/AnnotationPreview";
 import { slugify } from "@/lib/format";
 
 import { deleteFrame, saveFrame, type FormState } from "../../actions";
@@ -106,6 +107,7 @@ export function FrameForm({
   const [catalogId, setCatalogId] = useState(values.catalogId);
   const [slug, setSlug] = useState(values.slug);
   const [slugTouched, setSlugTouched] = useState(Boolean(values.slug));
+  const [annotationRows, setAnnotationRows] = useState(annotations);
 
   // Auto-derive the slug until it is edited by hand, then leave it alone.
   const effectiveSlug = slugTouched ? slug : slugify(catalogId);
@@ -395,10 +397,15 @@ export function FrameForm({
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Viewer annotations</h2>
-        {values.id ? <SolveStatus frameId={values.id} /> : null}
+        {values.id ? (
+          <SolveStatus frameId={values.id} onAnnotations={setAnnotationRows} />
+        ) : null}
+        <AnnotationPreview imageSrc={previewSrc} rows={annotationRows} />
         <RowEditor
           name="annotationsJson"
           initialRows={annotations}
+          rows={annotationRows}
+          onRowsChange={setAnnotationRows}
           addLabel="Add marker"
           emptyLabel="No markers — the Annotations toggle will show nothing."
           blankRow={{ label: "", xPct: 50, yPct: 50, radiusPx: 30 }}

@@ -22,6 +22,20 @@
       "when": 1787148209616,
       "tag": "0002_careless_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787193824658,
+      "tag": "0003_past_vulture",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787198802874,
+      "tag": "0004_safe_johnny_blaze",
+      "breakpoints": true
     }
   ]
 }

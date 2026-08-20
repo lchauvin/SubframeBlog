@@ -6,8 +6,8 @@ import type { NextConfig } from "next";
  * Default — a Node server: the admin, the media route handler and server
  * actions all exist. This is what `npm run dev` uses locally.
  *
- * ASTROBLOG_EXPORT=1 — a static export for shared hosting (Hostinger has no
- * Node on the entry plans). A static export cannot contain route handlers,
+ * ASTROBLOG_EXPORT=1 — a static export for hosting without a Node web app.
+ * A static export cannot contain route handlers,
  * middleware or server actions, so every route file that needs a server is
  * named `*.node.tsx` / `*.node.ts` and dropped from `pageExtensions` here.
  * That is Next's own mechanism for excluding routes from a build, and it beats
@@ -16,7 +16,7 @@ import type { NextConfig } from "next";
 const isExport = process.env.ASTROBLOG_EXPORT === "1";
 
 const nextConfig: NextConfig = {
-  output: isExport ? "export" : undefined,
+  output: isExport ? "export" : "standalone",
 
   pageExtensions: isExport
     ? ["tsx", "ts"]
@@ -29,6 +29,25 @@ const nextConfig: NextConfig = {
   // better-sqlite3 and sharp are native modules; keep them external to the
   // server bundle so Next does not try to trace/bundle their .node binaries.
   serverExternalPackages: ["better-sqlite3", "sharp"],
+  // Next's development instrumentation compiler does not consistently honor
+  // serverExternalPackages. Keep SQLite external there as well so its native
+  // bindings are never treated as browser code (where `fs` does not exist).
+  webpack(config, { isServer, nextRuntime }) {
+    if (isServer) config.externals.push("better-sqlite3");
+    if (nextRuntime === "edge") {
+      config.resolve.alias["./src/server/startup"] = false;
+    }
+    return config;
+  },
+  // Hostinger runs Next's standalone output. These runtime-read files are not
+  // discoverable from JS imports, so include them explicitly in file tracing.
+  outputFileTracingIncludes: {
+    "/*": ["./drizzle/**/*", "./catalog/**/*"],
+  },
+  // Local authoring data must never be baked into a deployment artifact.
+  outputFileTracingExcludes: {
+    "/*": ["./data/**/*"],
+  },
   eslint: { ignoreDuringBuilds: true },
 };
 

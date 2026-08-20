@@ -2,7 +2,8 @@ import "server-only";
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { and, asc, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { and, asc, eq, isNull, lt, or } from "drizzle-orm";
 
 import { fieldRadiusDegrees, parseRaDec } from "../../lib/coordinates";
 import { db } from "../db/client";
@@ -11,10 +12,11 @@ import { MEDIA_ROOT } from "../paths";
 import {
   getAnnotations,
   getCalibration,
+  getJobStatus,
+  getSubmission,
   isConfigured,
   login,
   uploadImage,
-  waitForJob,
 } from "./client";
 import { selectAnnotations } from "./objects";
 import { catalogAvailable, markersForFrame } from "./catalog";
@@ -24,8 +26,43 @@ export const MAX_AUTO_ANNOTATIONS = 8;
 
 /** Guards against a second solve being started for a frame already in flight. */
 const inFlight = new Set<number>();
+const LEASE_MS = 2 * 60 * 1000;
+const JOB_DISCOVERY_GRACE_MS = 15 * 60 * 1000;
 
 export const isSolving = (frameId: number) => inFlight.has(frameId);
+
+export function shouldKeepWaitingForJob(
+  processingFinished: boolean,
+  submittedAt: Date | null,
+  now = Date.now(),
+): boolean {
+  if (!processingFinished || !submittedAt) return true;
+  return now - submittedAt.getTime() < JOB_DISCOVERY_GRACE_MS;
+}
+
+async function acquireLease(frameId: number): Promise<string | null> {
+  const token = randomUUID();
+  const now = new Date();
+  const claimed = await db
+    .update(plateSolves)
+    .set({ leaseToken: token, leaseExpiresAt: new Date(now.getTime() + LEASE_MS) })
+    .where(
+      and(
+        eq(plateSolves.frameId, frameId),
+        or(eq(plateSolves.status, "queued"), eq(plateSolves.status, "solving")),
+        or(isNull(plateSolves.leaseExpiresAt), lt(plateSolves.leaseExpiresAt, now)),
+      ),
+    )
+    .returning({ id: plateSolves.id });
+  return claimed.length > 0 ? token : null;
+}
+
+async function releaseLease(frameId: number, token: string): Promise<void> {
+  await db
+    .update(plateSolves)
+    .set({ leaseToken: null, leaseExpiresAt: null })
+    .where(and(eq(plateSolves.frameId, frameId), eq(plateSolves.leaseToken, token)));
+}
 
 async function setStatus(
   frameId: number,
@@ -131,179 +168,271 @@ export async function reannotateFrame(frameId: number): Promise<string> {
   return `${inserted.length} of ${consideredCount} objects in field written.`;
 }
 
+async function failSolve(frameId: number, message: string): Promise<void> {
+  await setStatus(frameId, { status: "failed", message });
+}
+
+async function submitFrame(frameId: number): Promise<void> {
+  const frame = await db.select().from(frames).where(eq(frames.id, frameId)).get();
+  if (!frame) return;
+
+  const images = await db.select().from(frameImages).where(eq(frameImages.frameId, frameId));
+  // Submit a derivative rather than the 7–12MB master. Star positions retain
+  // enough information at this size and the durable submission id lets a later
+  // process resume polling without uploading again.
+  const candidate =
+    images.find((i) => i.variant === "download" && i.format === "jpeg") ??
+    images.find((i) => i.variant === "article" && i.format === "jpeg") ??
+    images.find((i) => i.variant === "viewer" && i.format === "jpeg");
+  if (!candidate) {
+    await failSolve(frameId, "No image to solve — upload a master first.");
+    return;
+  }
+
+  await setStatus(frameId, {
+    status: "solving",
+    message: "Uploading to astrometry.net…",
+    submissionId: "",
+    jobId: "",
+  });
+
+  const master = images.find((i) => i.variant === "master");
+  const position = parseRaDec(frame.plateCoordinates);
+  const radiusDeg =
+    master && frame.arcsecPerPx
+      ? fieldRadiusDegrees(master.width, master.height, frame.arcsecPerPx)
+      : null;
+  const submittedScale =
+    frame.arcsecPerPx && master
+      ? (frame.arcsecPerPx * master.width) / candidate.width
+      : undefined;
+
+  const buffer = await fs.readFile(path.join(MEDIA_ROOT, candidate.path));
+  const session = await login();
+  const submissionId = await uploadImage(session, buffer, `${frame.slug}.jpg`, {
+    centerRa: position?.ra,
+    centerDec: position?.dec,
+    radiusDeg: radiusDeg ? Math.max(1, radiusDeg * 2) : undefined,
+    arcsecPerPx: submittedScale,
+  });
+
+  await setStatus(frameId, {
+    status: "solving",
+    submissionId,
+    submittedAt: new Date(),
+    jobId: "",
+    message: position
+      ? "Queued with a positional hint from the plate coordinates."
+      : "Queued (no positional hint — blind solve, this takes longer).",
+  });
+}
+
+async function completeFromJob(frameId: number, jobId: string): Promise<void> {
+  const frame = await db.select().from(frames).where(eq(frames.id, frameId)).get();
+  if (!frame) return;
+  const images = await db.select().from(frameImages).where(eq(frameImages.frameId, frameId));
+  const candidate =
+    images.find((i) => i.variant === "download" && i.format === "jpeg") ??
+    images.find((i) => i.variant === "article" && i.format === "jpeg") ??
+    images.find((i) => i.variant === "viewer" && i.format === "jpeg");
+  if (!candidate) {
+    await failSolve(frameId, "The solved image derivative is no longer available.");
+    return;
+  }
+  const master = images.find((i) => i.variant === "master");
+  const [calibration, raw, wcs] = await Promise.all([
+    getCalibration(jobId),
+    getAnnotations(jobId),
+    fetchWcs(jobId),
+  ]);
+
+  const image = { width: candidate.width, height: candidate.height };
+  let selected: PlacedMarker[];
+  let consideredCount: number;
+  let via: string;
+
+  if (wcs && catalogAvailable()) {
+    const found = markersForFrame(wcs, image, {
+      limit: MAX_AUTO_ANNOTATIONS,
+      targetName: frame.catalogId,
+    });
+    selected = found.markers.map(({ label, xPct, yPct, radiusPx }) => ({
+      label,
+      xPct,
+      yPct,
+      radiusPx,
+    }));
+    consideredCount = found.consideredCount;
+    via = "catalogue";
+  } else {
+    const found = selectAnnotations(raw, image, MAX_AUTO_ANNOTATIONS);
+    selected = found.selected;
+    consideredCount = found.consideredCount;
+    via = wcs ? "solver list (no catalogue bundled)" : "solver list (no WCS returned)";
+  }
+
+  const inserted = await writeAutoAnnotations(frameId, selected);
+  await setStatus(frameId, {
+    status: "solved",
+    jobId,
+    centerRa: calibration?.ra ?? null,
+    centerDec: calibration?.dec ?? null,
+    radiusDeg: calibration?.radius ?? null,
+    pixScale:
+      calibration && master
+        ? (calibration.pixscale * candidate.width) / master.width
+        : (calibration?.pixscale ?? null),
+    orientation: calibration?.orientation ?? null,
+    wcsJson: wcs ? JSON.stringify(wcs) : "",
+    objectsFound: consideredCount,
+    annotationsWritten: inserted.length,
+    message:
+      inserted.length > 0
+        ? `Solved — ${inserted.length} of ${consideredCount} objects in field added, via ${via}. Review them below.`
+        : consideredCount > 0
+          ? `Solved — all ${consideredCount} objects found are already in the list.`
+          : "Solved, but no catalogued objects fell inside the frame.",
+  });
+}
+
 /**
- * Solves one frame and writes the resulting markers.
- *
- * Never throws: it is started fire-and-forget from the upload route, so every
- * outcome is recorded on the plate_solves row for the admin to read.
+ * Advances a solve by one durable step. No request stays open while the public
+ * queue works, and a process restart can continue from submissionId/jobId.
  */
-export async function solveFrame(frameId: number): Promise<void> {
+export async function advanceSolve(frameId: number): Promise<void> {
   if (inFlight.has(frameId)) return;
   inFlight.add(frameId);
-
+  let leaseToken: string | null = null;
   try {
     if (!isConfigured()) {
-      await setStatus(frameId, {
-        status: "failed",
-        message: "ASTROMETRY_API_KEY is not set — see SETUP.md.",
-      });
+      await failSolve(frameId, "ASTROMETRY_API_KEY is not set — see SETUP.md.");
       return;
     }
 
-    const frame = await db.select().from(frames).where(eq(frames.id, frameId)).get();
-    if (!frame) return;
+    leaseToken = await acquireLease(frameId);
+    if (!leaseToken) return;
 
-    const images = await db
-      .select()
-      .from(frameImages)
-      .where(eq(frameImages.frameId, frameId));
+    let solve = await getPlateSolve(frameId);
+    if (!solve) return;
+    if (solve.status === "queued" || (solve.status === "solving" && !solve.submissionId)) {
+      await submitFrame(frameId);
+      solve = await getPlateSolve(frameId);
+    }
+    if (!solve || solve.status !== "solving" || !solve.submissionId) return;
 
-    // Submit a downscaled derivative rather than the 7–12MB master: the solver
-    // works from star positions, so the extra pixels buy nothing and cost a
-    // long upload.
-    const candidate =
-      images.find((i) => i.variant === "download" && i.format === "jpeg") ??
-      images.find((i) => i.variant === "article" && i.format === "jpeg") ??
-      images.find((i) => i.variant === "viewer" && i.format === "jpeg");
-
-    if (!candidate) {
-      await setStatus(frameId, {
-        status: "failed",
-        message: "No image to solve — upload a master first.",
-      });
-      return;
+    let jobId = solve.jobId;
+    if (!jobId) {
+      const submission = await getSubmission(solve.submissionId);
+      if (submission.errorMessage) {
+        await failSolve(frameId, submission.errorMessage);
+        return;
+      }
+      if (submission.jobs.length === 0) {
+        if (
+          shouldKeepWaitingForJob(
+            submission.processingFinished,
+            solve.submittedAt,
+          )
+        ) {
+          await setStatus(frameId, {
+            status: "solving",
+            message: submission.processingFinished
+              ? "Submission processed; waiting for the solved job to appear…"
+              : "Solver: queued…",
+          });
+        } else {
+          await failSolve(
+            frameId,
+            "Astrometry.net did not publish a solve job within 15 minutes.",
+          );
+        }
+        return;
+      }
+      jobId = String(submission.jobs[0]);
+      await setStatus(frameId, { status: "solving", jobId, message: "Solver: processing…" });
     }
 
-    await setStatus(frameId, {
-      status: "solving",
-      message: "Uploading to astrometry.net…",
-      submissionId: "",
-      jobId: "",
-    });
-
-    // Positional and scale priors, when the frame carries enough to derive them.
-    const master = images.find((i) => i.variant === "master");
-    const position = parseRaDec(frame.plateCoordinates);
-    const radiusDeg =
-      master && frame.arcsecPerPx
-        ? fieldRadiusDegrees(master.width, master.height, frame.arcsecPerPx)
-        : null;
-
-    // The hint must describe the SUBMITTED image, not the master.
-    const submittedScale =
-      frame.arcsecPerPx && master
-        ? (frame.arcsecPerPx * master.width) / candidate.width
-        : undefined;
-
-    const buffer = await fs.readFile(path.join(MEDIA_ROOT, candidate.path));
-    const session = await login();
-    const submissionId = await uploadImage(
-      session,
-      buffer,
-      `${frame.slug}.jpg`,
-      {
-        centerRa: position?.ra,
-        centerDec: position?.dec,
-        // Pad the search radius so a slightly-off plate value still solves.
-        radiusDeg: radiusDeg ? Math.max(1, radiusDeg * 2) : undefined,
-        arcsecPerPx: submittedScale,
-      },
-    );
-
-    await setStatus(frameId, {
-      status: "solving",
-      submissionId,
-      message: position
-        ? `Queued with a positional hint from the plate coordinates.`
-        : `Queued (no positional hint — blind solve, this takes longer).`,
-    });
-
-    const jobId = await waitForJob(submissionId, {
-      onState: (state) => {
-        void setStatus(frameId, { status: "solving", jobId: "", message: `Solver: ${state}…` });
-      },
-    });
-
-    const [calibration, raw, wcs] = await Promise.all([
-      getCalibration(jobId),
-      getAnnotations(jobId),
-      fetchWcs(jobId),
-    ]);
-
-    // Prefer our own catalogue over the solver's annotation list. astrometry.net
-    // annotates NGC/IC and bright stars only, so the Sharpless, LBN and LDN
-    // designations these targets are usually known by never appear in it.
-    const image = { width: candidate.width, height: candidate.height };
-    let selected: { label: string; xPct: number; yPct: number; radiusPx: number }[];
-    let consideredCount: number;
-    let via: string;
-
-    if (wcs && catalogAvailable()) {
-      const found = markersForFrame(wcs, image, {
-        limit: MAX_AUTO_ANNOTATIONS,
-        targetName: frame.catalogId,
-      });
-      selected = found.markers.map(({ label, xPct, yPct, radiusPx }) => ({
-        label,
-        xPct,
-        yPct,
-        radiusPx,
-      }));
-      consideredCount = found.consideredCount;
-      via = "catalogue";
+    const status = await getJobStatus(jobId);
+    if (status === "failure") {
+      await failSolve(frameId, "The solver could not find a match for this image.");
+    } else if (status === "success") {
+      await completeFromJob(frameId, jobId);
     } else {
-      const found = selectAnnotations(raw, image, MAX_AUTO_ANNOTATIONS);
-      selected = found.selected;
-      consideredCount = found.consideredCount;
-      via = wcs ? "solver list (no catalogue bundled)" : "solver list (no WCS returned)";
+      await setStatus(frameId, { status: "solving", jobId, message: `Solver: ${status}…` });
     }
-
-    const toInsert = await writeAutoAnnotations(frameId, selected);
-
-    await setStatus(frameId, {
-      status: "solved",
-      jobId,
-      centerRa: calibration?.ra ?? null,
-      centerDec: calibration?.dec ?? null,
-      radiusDeg: calibration?.radius ?? null,
-      // Normalised to the MASTER's scale. The solver reports the scale of
-      // whichever derivative we submitted, which is not comparable with the
-      // frame's own arcsec/px and reads as a contradiction in the admin.
-      pixScale:
-        calibration && master
-          ? (calibration.pixscale * candidate.width) / master.width
-          : (calibration?.pixscale ?? null),
-      orientation: calibration?.orientation ?? null,
-      wcsJson: wcs ? JSON.stringify(wcs) : "",
-      objectsFound: consideredCount,
-      annotationsWritten: toInsert.length,
-      message:
-        toInsert.length > 0
-          ? `Solved — ${toInsert.length} of ${consideredCount} objects in field added, via ${via}. Review them below.`
-          : consideredCount > 0
-            ? `Solved — all ${consideredCount} objects found are already in the list.`
-            : `Solved, but no catalogued objects fell inside the frame.`,
-    });
   } catch (err) {
-    await setStatus(frameId, {
-      status: "failed",
-      message: err instanceof Error ? err.message : "Plate solve failed.",
-    });
+    const transient =
+      err instanceof TypeError ||
+      (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError"));
+    if (transient) {
+      await setStatus(frameId, {
+        message: `Temporary astrometry.net network error — retrying: ${
+          err instanceof Error ? err.message : "request failed"
+        }`,
+      });
+    } else {
+      await failSolve(frameId, err instanceof Error ? err.message : "Plate solve failed.");
+    }
   } finally {
+    if (leaseToken) await releaseLease(frameId, leaseToken);
     inFlight.delete(frameId);
   }
 }
 
-/** Fire-and-forget entry point used by the upload route. */
+/** Blocking wrapper retained for the CLI. The web app uses advanceSolve(). */
+export async function solveFrame(frameId: number): Promise<void> {
+  let delay = 5000;
+  const deadline = Date.now() + 12 * 60 * 1000;
+  while (Date.now() < deadline) {
+    await advanceSolve(frameId);
+    const solve = await getPlateSolve(frameId);
+    if (solve?.status === "solved" || solve?.status === "failed") return;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    delay = Math.min(Math.round(delay * 1.4), 20_000);
+  }
+  await failSolve(frameId, "Timed out after 12 minutes waiting for the solver.");
+}
+
+/** Queue entry point used by uploads and the manual retry control. */
 export function queueSolve(frameId: number): void {
   void setStatus(frameId, {
     status: "queued",
+    submissionId: "",
+    submittedAt: null,
+    jobId: "",
     message: "Waiting to start…",
     objectsFound: 0,
     annotationsWritten: 0,
-  }).then(() => solveFrame(frameId));
+    leaseToken: null,
+    leaseExpiresAt: null,
+  }).then(() => advanceSolve(frameId));
+}
+
+/**
+ * Manual retry can recover submissions failed by the former eager empty-jobs
+ * check without uploading the same image again.
+ */
+export async function retrySolve(frameId: number): Promise<void> {
+  const existing = await getPlateSolve(frameId);
+  if (
+    existing?.status === "failed" &&
+    existing.submissionId &&
+    !existing.jobId &&
+    existing.message === "Astrometry.net finished without creating a solve job."
+  ) {
+    await setStatus(frameId, {
+      status: "solving",
+      submittedAt: new Date(),
+      message: "Resuming the existing Astrometry.net submission…",
+      leaseToken: null,
+      leaseExpiresAt: null,
+    });
+    void advanceSolve(frameId);
+    return;
+  }
+  queueSolve(frameId);
 }
 
 export async function getPlateSolve(frameId: number) {
-  return db.select().from(plateSolves).where(eq(plateSolves.frameId, frameId)).get() ?? null;
+  return (await db.select().from(plateSolves).where(eq(plateSolves.frameId, frameId)).get()) ?? null;
 }

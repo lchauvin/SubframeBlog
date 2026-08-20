@@ -10,12 +10,14 @@ import {
   listPublishedFrames,
   pickImage,
 } from "@/server/db/queries";
+import { useRequestTimeRendering } from "@/server/rendering";
 
 import styles from "./about.module.css";
 
 export const metadata: Metadata = { title: "About & rig" };
 
 export default async function AboutPage() {
+  await useRequestTimeRendering();
   const [settingsRow, stats, gear] = await Promise.all([
     getSiteSettings(),
     getSiteStats(),

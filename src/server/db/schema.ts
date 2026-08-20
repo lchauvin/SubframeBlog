@@ -176,7 +176,12 @@ export const plateSolves = sqliteTable(
     // queued | solving | solved | failed
     status: text("status").notNull().default("queued"),
     submissionId: text("submission_id").notNull().default(""),
+    submittedAt: integer("submitted_at", { mode: "timestamp" }),
     jobId: text("job_id").notNull().default(""),
+    // Short lease used to keep two server instances from advancing the same
+    // external job concurrently. Expired leases are safely reclaimable.
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: integer("lease_expires_at", { mode: "timestamp" }),
 
     // Calibration returned by the solver, kept so annotations can be
     // regenerated later without re-uploading.

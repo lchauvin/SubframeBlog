@@ -3,19 +3,26 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.9 <23"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/build-server.mjs",
     "export": "node --env-file-if-exists=.env --conditions react-server --import tsx scripts/export-site.ts",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "seed": "node --conditions react-server --import tsx scripts/seed.ts",
     "check:astrometry": "node --conditions react-server --import tsx scripts/verify-astrometry.ts",
+    "check:deploy": "node --conditions react-server --import tsx scripts/verify-deploy.ts",
+    "check:server": "node scripts/smoke-server.mjs",
+    "package:hostinger": "node scripts/package-hostinger.mjs",
     "build:catalog": "node --conditions react-server --import tsx scripts/build-catalog.ts",
     "solve": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --conditions react-server --import tsx scripts/solve-frame.ts",
-    "admin:password": "node --conditions react-server --import tsx scripts/admin-password.ts"
+    "admin:password": "node --conditions react-server --import tsx scripts/admin-password.ts",
+    "verify:deploy": "npm run typecheck && npm run check:astrometry && npm run check:deploy && npm run export && npm run build && npm run check:server"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.0",
@@ -33,6 +40,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "archiver": "^8.0.0",
     "drizzle-kit": "^0.30.0",
     "tsx": "^4.23.12",
     "typescript": "^5.7.0"

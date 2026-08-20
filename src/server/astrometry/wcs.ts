@@ -171,7 +171,9 @@ export function angularSeparation(
 /** Fetches the solved WCS header for a job. No API key required. */
 export async function fetchWcs(jobId: string): Promise<Wcs | null> {
   const base = process.env.ASTROMETRY_SITE_URL || "https://nova.astrometry.net";
-  const res = await fetch(`${base}/wcs_file/${jobId}`);
+  const res = await fetch(`${base}/wcs_file/${jobId}`, {
+    signal: AbortSignal.timeout(30_000),
+  });
   if (!res.ok) return null;
   return parseWcsHeader(await res.text());
 }

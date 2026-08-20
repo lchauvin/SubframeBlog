@@ -14,7 +14,7 @@ import { MEDIA_ROOT } from "../paths";
  * time than it saves bytes over WebP at these sizes.
  */
 export const VARIANTS = [
-  { name: "viewer", longEdge: 4000, webpQuality: 82, jpegQuality: 85, formats: ["webp", "jpeg"] },
+  { name: "viewer", longEdge: 6000, webpQuality: 90, jpegQuality: 92, formats: ["webp", "jpeg"] },
   { name: "article", longEdge: 1600, webpQuality: 84, jpegQuality: 86, formats: ["webp", "jpeg"] },
   { name: "thumb", longEdge: 600, webpQuality: 86, jpegQuality: 88, formats: ["webp", "jpeg"] },
   // Backs the viewer's "Download 2048px" chip. JPEG only — it is a file people

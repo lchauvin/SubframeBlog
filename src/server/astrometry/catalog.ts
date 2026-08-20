@@ -17,10 +17,10 @@ type CatalogFile = {
 
 /** Nominal image width the design's radiusPx unit is expressed against. */
 const DESIGN_WIDTH = 1600;
-// The design's own markers run 22-54 design px. A frame-filling nebula would
-// otherwise draw a circle the size of the picture, which points at nothing.
-const MIN_RADIUS = 16;
-const MAX_RADIUS = 64;
+const MIN_DIAMETER = 16;
+// Preserve real catalogue sizes, including nebulae wider than the frame. This
+// guard only prevents corrupt catalogue values from producing unbounded CSS.
+const MAX_DIAMETER = DESIGN_WIDTH * 2;
 /** Keep marker centres off the very edge, where the circle would be clipped. */
 const EDGE_INSET = 0.02;
 
@@ -41,19 +41,37 @@ const PRIORITY: [RegExp, number][] = [
 const priorityOf = (name: string) =>
   PRIORITY.find(([re]) => re.test(name))?.[1] ?? 9;
 
+const catalogOf = (name: string) => name.split(/[\s-]/, 1)[0].toLowerCase();
+
+function familyOf(type: string): string {
+  const normalized = type.trim().toLowerCase();
+  if (["hii", "neb", "emn", "rfn", "drkn", "snr", "cl+n"].includes(normalized)) {
+    return "nebula";
+  }
+  return normalized;
+}
+
 // Read from disk rather than importing, so 600KB of reference data never ends
 // up inside a build bundle. Cached for the life of the process.
 let cache: CatalogFile | null = null;
 
+function catalogPath(): string {
+  const candidates = [
+    path.join(process.cwd(), "catalog", "deep-sky.json"),
+    process.argv[1]
+      ? path.join(path.dirname(process.argv[1]), "catalog", "deep-sky.json")
+      : "",
+  ].filter(Boolean);
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0];
+}
+
 export function loadCatalog(): CatalogFile {
   if (cache) return cache;
-  const file = path.join(process.cwd(), "catalog", "deep-sky.json");
-  cache = JSON.parse(fs.readFileSync(file, "utf8")) as CatalogFile;
+  cache = JSON.parse(fs.readFileSync(catalogPath(), "utf8")) as CatalogFile;
   return cache;
 }
 
-export const catalogAvailable = () =>
-  fs.existsSync(path.join(process.cwd(), "catalog", "deep-sky.json"));
+export const catalogAvailable = () => fs.existsSync(catalogPath());
 
 export type CatalogMarker = {
   label: string;
@@ -94,9 +112,13 @@ export function markersForFrame(
   const decLo = centre.dec - radiusDeg;
   const decHi = centre.dec + radiusDeg;
 
-  const candidates: (CatalogMarker & { priority: number })[] = [];
+  const candidates: (CatalogMarker & {
+    priority: number;
+    catalog: string;
+    family: string;
+  })[] = [];
 
-  for (const [name, ra, dec, diamArcmin] of objects) {
+  for (const [name, ra, dec, diamArcmin, type] of objects) {
     if (dec < decLo || dec > decHi) continue;
     if (angularSeparation(centre.ra, centre.dec, ra, dec) > radiusDeg) continue;
 
@@ -125,11 +147,13 @@ export function markersForFrame(
       xPct: Number(((pixel.x / image.width) * 100).toFixed(2)),
       yPct: Number(((pixel.y / image.height) * 100).toFixed(2)),
       radiusPx: Math.round(
-        Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, fraction * DESIGN_WIDTH)),
+        Math.min(MAX_DIAMETER, Math.max(MIN_DIAMETER, fraction * DESIGN_WIDTH)),
       ),
       diamArcmin: diam,
       // A designation matching the article's own target outranks every catalogue.
       priority: name.toLowerCase() === target ? -1 : priorityOf(name),
+      catalog: catalogOf(name),
+      family: familyOf(type),
     });
   }
 
@@ -155,7 +179,21 @@ export function markersForFrame(
       const head = cluster.members[0];
       const dx = cxPx - (head.xPct / 100) * image.width;
       const dy = cyPx - (head.yPct / 100) * image.height;
-      return Math.hypot(dx, dy) < Math.max(cluster.radiusPx, own) * 0.6;
+      const distance = Math.hypot(dx, dy);
+      const largerRadius = Math.max(cluster.radiusPx, own);
+      const smallerRadius = Math.min(cluster.radiusPx, own);
+
+      // Cross-catalogue nebula centres are often approximate rather than
+      // identical. Treat similarly sized, overlapping entries as aliases
+      // (for example Sh2-114 and LBN 347), while preserving nearby objects
+      // from the same catalogue.
+      const crossCatalogAlias =
+        c.catalog !== head.catalog &&
+        c.family === head.family &&
+        smallerRadius / largerRadius >= 0.25 &&
+        distance <= largerRadius * 1.1;
+      const nearlyConcentric = distance <= smallerRadius * 0.2;
+      return crossCatalogAlias || nearlyConcentric;
     });
 
     if (host) host.members.push(c);

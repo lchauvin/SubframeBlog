@@ -1,0 +1,1 @@
+ALTER TABLE `plate_solves` ADD `submitted_at` integer;

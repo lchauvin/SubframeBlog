@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+
+import type { RowValue } from "./RowEditor";
 
 import styles from "./SolveStatus.module.css";
 
@@ -17,6 +18,8 @@ type Payload = {
   centerDec: number | null;
   pixScale: number | null;
   orientation: number | null;
+  updatedAt: string | null;
+  annotations: RowValue[];
 };
 
 const LABELS: Record<Status, string> = {
@@ -34,12 +37,17 @@ const LABELS: Record<Status, string> = {
  * queue takes anywhere from ~30s to a few minutes, so the upload cannot wait
  * for it and the result arrives here instead.
  */
-export function SolveStatus({ frameId }: { frameId: number }) {
-  const router = useRouter();
+export function SolveStatus({
+  frameId,
+  onAnnotations,
+}: {
+  frameId: number;
+  onAnnotations?: (annotations: RowValue[]) => void;
+}) {
   const [data, setData] = useState<Payload | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const wasActive = useRef(false);
+  const appliedSolve = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -48,14 +56,17 @@ export function SolveStatus({ frameId }: { frameId: number }) {
       const json = (await res.json()) as Payload;
       setData(json);
 
-      // When a run finishes, pull the newly written annotation rows into the form.
-      const active = json.status === "queued" || json.status === "solving";
-      if (wasActive.current && !active) router.refresh();
-      wasActive.current = active;
+      // Apply each completed solve exactly once. Passing the rows directly
+      // avoids leaving RowEditor's local state stale after a server refresh.
+      const solveVersion = `${json.status}:${json.updatedAt ?? ""}`;
+      if (json.status === "solved" && appliedSolve.current !== solveVersion) {
+        appliedSolve.current = solveVersion;
+        onAnnotations?.(json.annotations);
+      }
     } catch {
       /* transient — the next tick will retry */
     }
-  }, [frameId, router]);
+  }, [frameId, onAnnotations]);
 
   useEffect(() => {
     void load();
