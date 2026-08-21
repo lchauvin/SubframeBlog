@@ -66,13 +66,15 @@ async function imageSetsFor(frameIds: number[]): Promise<Map<number, ImageSet>> 
 
 export type FrameListItem = Frame & { images: ImageSet };
 
-/** Newest first — the ordering the prototype claimed but could not do without a real date. */
+const frameListOrder = [asc(frames.sortIndex), desc(frames.capturedOn), desc(frames.id)] as const;
+
+/** Gallery / admin order: manual sort index, then newest capture date. */
 export async function listPublishedFrames(): Promise<FrameListItem[]> {
   const rows = await db
     .select()
     .from(frames)
     .where(eq(frames.published, true))
-    .orderBy(desc(frames.capturedOn), desc(frames.id));
+    .orderBy(...frameListOrder);
 
   const images = await imageSetsFor(rows.map((r) => r.id));
   return rows.map((r) => ({ ...r, images: images.get(r.id) ?? {} }));
@@ -82,7 +84,7 @@ export async function listAllFrames(): Promise<FrameListItem[]> {
   const rows = await db
     .select()
     .from(frames)
-    .orderBy(desc(frames.capturedOn), desc(frames.id));
+    .orderBy(...frameListOrder);
   const images = await imageSetsFor(rows.map((r) => r.id));
   return rows.map((r) => ({ ...r, images: images.get(r.id) ?? {} }));
 }
@@ -145,17 +147,20 @@ export async function getFrameById(id: number): Promise<FullFrame | null> {
   return frame ? hydrate(frame) : null;
 }
 
-/** The four thumbs under an article. Newest first, excluding the current frame. */
+/** The four thumbs under an article, taken from neighbours in gallery order. */
 export async function getAdjacentFrames(frameId: number, limit = 4): Promise<FrameListItem[]> {
   const rows = await db
     .select()
     .from(frames)
     .where(eq(frames.published, true))
-    .orderBy(desc(frames.capturedOn), desc(frames.id));
+    .orderBy(...frameListOrder);
 
-  const others = rows.filter((r) => r.id !== frameId).slice(0, limit);
-  const images = await imageSetsFor(others.map((r) => r.id));
-  return others.map((r) => ({ ...r, images: images.get(r.id) ?? {} }));
+  const index = rows.findIndex((r) => r.id === frameId);
+  const before = index > 0 ? rows.slice(Math.max(0, index - 2), index) : [];
+  const after = rows.slice(index + 1, index + 1 + Math.max(0, limit - before.length));
+  const picked = [...before, ...after].slice(0, limit);
+  const images = await imageSetsFor(picked.map((r) => r.id));
+  return picked.map((r) => ({ ...r, images: images.get(r.id) ?? {} }));
 }
 
 /** Slugs of published frames — drives generateStaticParams for the export. */

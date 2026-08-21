@@ -55,6 +55,7 @@ export const frames = sqliteTable(
     arcsecPerPx: real("arcsec_per_px"),
 
     published: integer("published", { mode: "boolean" }).notNull().default(false),
+    /** Lower numbers appear first in the admin list and the public log. */
     sortIndex: integer("sort_index").notNull().default(0),
 
     createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(now),

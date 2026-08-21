@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { slugify } from "@/lib/format";
@@ -164,9 +164,19 @@ export async function saveFrame(_prev: FormState, formData: FormData): Promise<F
     await db.update(frames).set(values).where(eq(frames.id, id));
     frameId = id;
   } else {
+    const top = await db
+      .select({ sortIndex: frames.sortIndex })
+      .from(frames)
+      .orderBy(asc(frames.sortIndex))
+      .limit(1)
+      .get();
     const inserted = await db
       .insert(frames)
-      .values({ ...values, createdAt: new Date() })
+      .values({
+        ...values,
+        sortIndex: top ? top.sortIndex - 1 : 0,
+        createdAt: new Date(),
+      })
       .returning({ id: frames.id });
     frameId = inserted[0].id;
     created = true;
@@ -236,6 +246,49 @@ export async function togglePublish(formData: FormData): Promise<void> {
   revalidatePath("/");
   revalidatePath("/about");
   revalidatePath(`/frame/${frame.slug}`);
+  revalidatePath("/admin");
+}
+
+export async function moveFrame(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const id = Number(formData.get("id"));
+  const direction = String(formData.get("direction"));
+  if (!Number.isFinite(id) || (direction !== "up" && direction !== "down")) return;
+
+  const rows = await db
+    .select({ id: frames.id, sortIndex: frames.sortIndex })
+    .from(frames)
+    .orderBy(asc(frames.sortIndex), desc(frames.capturedOn), desc(frames.id));
+
+  const index = rows.findIndex((row) => row.id === id);
+  const swapWith = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || swapWith < 0 || swapWith >= rows.length) return;
+
+  const uniqueIndexes = new Set(rows.map((row) => row.sortIndex));
+  if (uniqueIndexes.size !== rows.length) {
+    for (const [position, row] of rows.entries()) {
+      await db
+        .update(frames)
+        .set({ sortIndex: position, updatedAt: new Date() })
+        .where(eq(frames.id, row.id));
+      row.sortIndex = position;
+    }
+  }
+
+  const current = rows[index];
+  const neighbor = rows[swapWith];
+  await db
+    .update(frames)
+    .set({ sortIndex: neighbor.sortIndex, updatedAt: new Date() })
+    .where(eq(frames.id, current.id));
+  await db
+    .update(frames)
+    .set({ sortIndex: current.sortIndex, updatedAt: new Date() })
+    .where(eq(frames.id, neighbor.id));
+
+  revalidatePath("/");
+  revalidatePath("/about");
   revalidatePath("/admin");
 }
 

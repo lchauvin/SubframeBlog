@@ -100,7 +100,7 @@
 
 .listRow {
   display: grid;
-  grid-template-columns: 72px 1fr 110px 96px 96px 150px;
+  grid-template-columns: 32px 72px 1fr 110px 96px 96px 150px;
   gap: 16px;
   align-items: center;
   padding: 10px 0;
@@ -154,6 +154,25 @@
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+
+.orderButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.iconButton {
+  padding: 2px 4px;
+  line-height: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* ---- Forms --------------------------------------------------------------- */

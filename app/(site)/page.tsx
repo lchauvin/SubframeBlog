@@ -34,7 +34,6 @@ export default async function LogPage() {
       : null;
 
   const subhead = [
-    "Newest first",
     `${summary.frameCount} ${summary.frameCount === 1 ? "frame" : "frames"}`,
     `${summary.totalHours}h integration`,
     range,

@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { formatMinutes, formatMonthYear } from "@/lib/format";
 import { listAllFrames, pickImage } from "@/server/db/queries";
 
-import { togglePublish } from "../actions";
+import { moveFrame, togglePublish } from "../actions";
 import styles from "../admin.module.css";
 
 export const dynamic = "force-dynamic";
@@ -32,12 +33,39 @@ export default async function AdminFramesPage() {
         </div>
       ) : (
         <div className={styles.list} style={{ marginTop: 22 }}>
-          {frames.map((frame) => {
+          {frames.map((frame, index) => {
             const thumb = pickImage(frame.images, "thumb");
             const src = thumb.jpeg?.src ?? thumb.webp?.src ?? null;
 
             return (
               <div className={styles.listRow} key={frame.id}>
+                <div className={styles.orderButtons}>
+                  <form action={moveFrame}>
+                    <input type="hidden" name="id" value={frame.id} />
+                    <input type="hidden" name="direction" value="up" />
+                    <button
+                      type="submit"
+                      className={`${styles.button} ${styles.iconButton}`}
+                      disabled={index === 0}
+                      aria-label={`Move ${frame.catalogId} up`}
+                    >
+                      <ChevronUp size={14} strokeWidth={2} />
+                    </button>
+                  </form>
+                  <form action={moveFrame}>
+                    <input type="hidden" name="id" value={frame.id} />
+                    <input type="hidden" name="direction" value="down" />
+                    <button
+                      type="submit"
+                      className={`${styles.button} ${styles.iconButton}`}
+                      disabled={index === frames.length - 1}
+                      aria-label={`Move ${frame.catalogId} down`}
+                    >
+                      <ChevronDown size={14} strokeWidth={2} />
+                    </button>
+                  </form>
+                </div>
+
                 {src ? (
                   <img className={styles.listThumb} src={src} alt="" />
                 ) : (
