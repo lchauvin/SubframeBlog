@@ -64,7 +64,11 @@ function importValues(
 
   if (!next.catalogId.trim()) throw new Error("frame.catalogId is required.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(next.capturedOn)) {
-    throw new Error("frame.capturedOn must be YYYY-MM-DD.");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(defaults.capturedOn) && !String(raw.capturedOn ?? "").trim()) {
+      next.capturedOn = defaults.capturedOn;
+    } else {
+      throw new Error("frame.capturedOn must be YYYY-MM-DD.");
+    }
   }
   if (next.integrationMinutes > 59) {
     throw new Error("frame.integrationMinutes must be between 0 and 59.");

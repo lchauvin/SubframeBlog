@@ -35,7 +35,7 @@ so it stays out of shell history).
 | `npm run seed` | **Destructive** — clears content tables and reloads the design frames |
 | `npm run admin:password` | Create / reset the admin account |
 | `npm run check:astrometry` | Checks the plate-solve logic that needs no API key (coordinate parsing, search hints, WCS projection, catalogue placement) |
-| `npm run import:wbpp -- <log>` | Generate a reviewable new-frame JSON draft from a PixInsight WBPP log |
+| `npm run import:wbpp -- <input> [<input>…]` | Generate a reviewable new-frame JSON draft from WBPP logs and/or manual processing directories |
 | `npm run check:wbpp` | Run the standard-library WBPP importer tests |
 | `npm run build:catalog` | Rebuilds `catalog/deep-sky.json` from OpenNGC + VizieR. Only needed to refresh the data |
 | `npm run solve -- <slug>` | Plate-solves one frame (`--all` for every frame) |
@@ -48,12 +48,27 @@ happens, stop both, `rm -rf .next`, and restart.
 
 ## Importing a WBPP frame draft
 
-`scripts/import-wbpp.py` reads a PixInsight Weighted Batch Preprocessing log and
-writes JSON shaped like the New frame admin form. It does not change the
-database. The deterministic pass ignores calibration frames, totals acquired
-lights by filter and `NIGHT`, reads final active counts from ImageIntegration,
-builds per-night rejection rows when the integrated file list can be mapped,
-infers the palette, and extracts solved coordinates, pixel size and image scale.
+`scripts/import-wbpp.py` reads PixInsight Weighted Batch Preprocessing logs
+and/or a manual processing directory, then writes JSON shaped like the New frame
+admin form. It does not change the database. Pass every log or year folder from a
+split run (stars processed separately, mosaic panels, WBPP plus a manual RGB
+folder, and so on); the importer merges acquired and kept counts, nights, and
+diagnostics into a single draft.
+
+The deterministic pass ignores calibration frames and `.Calibration` / `.Finished`
+folders. For a WBPP log it totals acquired lights by filter and `NIGHT`, then
+reads final active counts from ImageIntegration (summing the largest group per
+filter in each log). For a manual folder such as
+`G:\Astro\IC 1805 (Heart Nebula)\2025` it counts acquired lights from
+`.SessionData/<night>/LIGHT/<filter>/` and kept frames from the last populated
+pipeline stage per filter (`6. LocalNormalized` when present, otherwise
+`5. Registered`, then Weighted / Corrected / Calibrated / Blinked). Empty steps
+such as `3. Corrected` are skipped. Drizzle `.xdrz` sidecars, LocalNormalization
+`ReferenceFrame` copies, and `MasterLight` files are not counted as subframes.
+Per-night rejection rows are built when kept files can be mapped back to a
+session night (including frames whose timestamp rolls past midnight). The pass
+also infers the palette and, for WBPP logs, extracts solved coordinates, pixel
+size and image scale.
 Generated integration durations use separate integer hours/minutes fields, and
 rejected night rows deliberately leave `reason` blank for manual review. The
 admin per-filter editor presents one Total integration time input in `6h50`
@@ -70,8 +85,28 @@ npm run import:wbpp -- `
   --pretty --output "wr-134-frame.json"
 ```
 
-The target hint normally comes from the directory immediately before `WBPP`;
-use `--target "WR 134"` when that folder is ambiguous. SIMBAD is queried online
+Multiple logs (narrowband plus a separate stars/RGB run, or mosaic panels):
+
+```powershell
+npm run import:wbpp -- `
+  "G:\Astro\Sh2-114 (Red Dragon Nebula)\WBPP\logs\20260816203420.log" `
+  "G:\Astro\Sh2-114 (Red Dragon Nebula)\Stars\WBPP\logs\20260817120000.log" `
+  --bandwidth 3nm `
+  --pretty --output "sh2-114-frame.json"
+```
+
+A manual processing directory (WBPP-style numbered pipeline, no log file):
+
+```powershell
+npm run import:wbpp -- `
+  "G:\Astro\IC 1805 (Heart Nebula)\2025" `
+  --bandwidth 3nm `
+  --pretty --output "ic-1805-frame.json"
+```
+
+The target hint normally comes from the first non-generic directory (folders
+such as `Stars`, `RGB`, `2025`, `WBPP`, or `panel-1` are skipped); use
+`--target "WR 134"` when that folder is ambiguous. SIMBAD is queried online
 to verify the canonical object, all returned aliases, object type, coordinates
 and available distance measurements, which are converted to light years.
 Wikidata supplies the constellation (and a fallback distance from claim P2583)
@@ -96,7 +131,8 @@ Useful controls:
 Open `/admin/frames/new` or an existing frame's edit page, choose the generated
 file under **Import frame draft**, and review the populated fields before saving.
 Importing only changes the browser form; it does not write to SQLite. On an
-existing frame the slug, publish state and uploaded images are left unchanged. The full,
+existing frame the slug, publish state and uploaded images are left unchanged.
+The edit page can export the current form back to the same JSON shape. The full,
 potentially long SIMBAD identifier list is retained under
 `diagnostics.allCatalogIdentifiers`; `frame.plateCatalog` contains a concise
 selection that fits the admin field.

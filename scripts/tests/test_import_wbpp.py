@@ -64,6 +64,7 @@ class ParserTests(unittest.TestCase):
             revision="",
         )
         self.assertEqual(draft["frame"]["catalogId"], "WR 134")
+        self.assertEqual(draft["frame"]["slug"], "wr-134")
         self.assertEqual(draft["frame"]["palette"], "HOO")
         self.assertEqual(draft["frame"]["integrationHours"], 0)
         self.assertEqual(draft["frame"]["integrationMinutes"], 25)
@@ -102,8 +103,32 @@ class ParserTests(unittest.TestCase):
         self.assertTrue(any("calibration" in warning for warning in parsed.warnings))
         self.assertTrue(any("ImageIntegration" in warning for warning in parsed.warnings))
 
+    def test_frame_slug_includes_revision(self) -> None:
+        self.assertEqual(wbpp.frame_slug("IC 1805", ""), "ic-1805")
+        self.assertEqual(wbpp.frame_slug("IC 1805", "B"), "ic-1805-b")
+        self.assertEqual(wbpp.frame_slug("IC 1805", "Rev.A"), "ic-1805-rev-a")
+        draft = wbpp.build_draft(
+            FIXTURE,
+            self.parsed,
+            "V1769 Cyg (WR 134)",
+            {},
+            {},
+            bandwidth="3nm",
+            optics="",
+            sensor="",
+            sky="",
+            frame_number="004",
+            revision="B",
+        )
+        self.assertEqual(draft["frame"]["frameNumber"], "004")
+        self.assertEqual(draft["frame"]["revision"], "B")
+        self.assertEqual(draft["frame"]["slug"], "wr-134-b")
+
     def test_filter_normalization_and_palettes(self) -> None:
         self.assertEqual(wbpp.normalize_filter("H-alpha"), "Ha")
+        self.assertEqual(wbpp.normalize_filter("H"), "Ha")
+        self.assertEqual(wbpp.normalize_filter("O"), "OIII")
+        self.assertEqual(wbpp.normalize_filter("S"), "SII")
         self.assertEqual(wbpp.normalize_filter("O3"), "OIII")
         self.assertEqual(wbpp.infer_palette(["Ha", "OIII"]), "HOO")
         self.assertEqual(wbpp.infer_palette(["Ha", "OIII", "SII"]), "SHO")
@@ -122,6 +147,290 @@ class ParserTests(unittest.TestCase):
         path = r"G:\Astro\V1769 Cyg (WR 134)\WBPP\logs\run.log"
         self.assertEqual(wbpp.target_hint_from_path(path), "V1769 Cyg (WR 134)")
         self.assertEqual(wbpp.target_candidates("V1769 Cyg (WR 134)")[0], "WR 134")
+
+    def test_target_hint_walks_past_generic_wbpp_parent(self) -> None:
+        path = r"G:\Astro\Sh2-114 (Red Dragon Nebula)\Stars\WBPP\logs\run.log"
+        self.assertEqual(wbpp.target_hint_from_path(path), "Sh2-114 (Red Dragon Nebula)")
+        self.assertEqual(
+            wbpp.prefer_target_hint(["Stars", "Sh2-114 (Red Dragon Nebula)"]),
+            "Sh2-114 (Red Dragon Nebula)",
+        )
+        self.assertEqual(wbpp.prefer_target_hint(["stars"], override="WR 134"), "WR 134")
+        self.assertTrue(wbpp.is_generic_target_hint("panel-2"))
+        self.assertEqual(
+            wbpp.target_hint_from_path(r"G:\Astro\IC 1805 (Heart Nebula)\2025"),
+            "IC 1805 (Heart Nebula)",
+        )
+
+    def test_parse_args_accepts_multiple_logs(self) -> None:
+        args = wbpp.parse_args(["first.log", "second.log", "--pretty"])
+        self.assertEqual(args.inputs, [Path("first.log"), Path("second.log")])
+
+    def test_parse_args_accepts_processing_directory(self) -> None:
+        args = wbpp.parse_args([r"G:\Astro\IC 1805 (Heart Nebula)\2025", "--pretty"])
+        self.assertEqual(args.inputs, [Path(r"G:\Astro\IC 1805 (Heart Nebula)\2025")])
+
+    def _rgb_parse(self) -> object:
+        return wbpp.ParseResult(
+            wbpp_version="3.0.1",
+            calibration_groups=[
+                wbpp.Group("R", 60.0, 10, 10, "2026-06-08"),
+                wbpp.Group("G", 60.0, 10, 10, "2026-06-08"),
+                wbpp.Group("B", 60.0, 8, 8, "2026-06-08"),
+            ],
+            integration_groups=[
+                wbpp.Group("R", 60.0, 10, 8, None),
+                wbpp.Group("G", 60.0, 10, 7, None),
+                wbpp.Group("B", 60.0, 8, 6, None),
+            ],
+            kept_by_night=wbpp.Counter(
+                {("2026-06-08", "R"): 8, ("2026-06-08", "G"): 7, ("2026-06-08", "B"): 6}
+            ),
+            center_ra=None,
+            center_dec=None,
+            center_ra_deg=None,
+            center_dec_deg=None,
+            pixel_size_um=2.9,
+            arcsec_per_px=2.393,
+            warnings=[],
+        )
+
+    def test_merges_narrowband_and_rgb_logs(self) -> None:
+        merged = wbpp.merge_parse_results(
+            [("nb.log", self.parsed), ("rgb.log", self._rgb_parse())]
+        )
+        draft = wbpp.build_draft(
+            [Path("nb.log"), Path("rgb.log")],
+            merged,
+            "Sh2-114",
+            {},
+            {},
+            bandwidth="3nm",
+            optics="",
+            sensor="",
+            sky="",
+            frame_number="",
+            revision="",
+        )
+        filters = {row["name"]: (row["keptFrames"], row["totalFrames"]) for row in draft["filters"]}
+        self.assertEqual(filters["Hα 3nm"], (3, 5))
+        self.assertEqual(filters["OIII 3nm"], (2, 4))
+        self.assertEqual(filters["R"], (8, 10))
+        self.assertEqual(filters["G"], (7, 10))
+        self.assertEqual(filters["B"], (6, 8))
+        self.assertEqual(draft["frame"]["palette"], "HOO")
+        self.assertEqual(draft["sources"]["wbppLogs"], ["nb.log", "rgb.log"])
+        self.assertEqual(sum(row["kept"] for row in draft["nights"]), 5 + 8 + 7 + 6)
+
+    def test_merge_sums_same_filter_across_logs(self) -> None:
+        panel_a = wbpp.ParseResult(
+            wbpp_version="3.0.1",
+            calibration_groups=[wbpp.Group("Ha", 300.0, 100, 100, "2026-08-01")],
+            integration_groups=[wbpp.Group("Ha", 300.0, 100, 80, None)],
+            kept_by_night=wbpp.Counter({("2026-08-01", "Ha"): 80}),
+            center_ra=None,
+            center_dec=None,
+            center_ra_deg=10.0,
+            center_dec_deg=20.0,
+            pixel_size_um=2.9,
+            arcsec_per_px=2.393,
+            warnings=[],
+        )
+        panel_b = wbpp.ParseResult(
+            wbpp_version="3.0.1",
+            calibration_groups=[wbpp.Group("Ha", 300.0, 90, 90, "2026-08-01")],
+            integration_groups=[wbpp.Group("Ha", 300.0, 90, 70, None)],
+            kept_by_night=wbpp.Counter({("2026-08-01", "Ha"): 70}),
+            center_ra=None,
+            center_dec=None,
+            center_ra_deg=12.0,
+            center_dec_deg=21.0,
+            pixel_size_um=2.9,
+            arcsec_per_px=2.393,
+            warnings=[],
+        )
+        merged = wbpp.merge_parse_results([("a.log", panel_a), ("b.log", panel_b)])
+        self.assertEqual(merged.integration_groups[0].active, 150)
+        self.assertEqual(merged.kept_by_night[("2026-08-01", "Ha")], 150)
+        self.assertTrue(any("differs by" in warning for warning in merged.warnings))
+        draft = wbpp.build_draft(
+            [Path("a.log"), Path("b.log")],
+            merged,
+            "Sh2-114",
+            {},
+            {},
+            bandwidth="3nm",
+            optics="",
+            sensor="",
+            sky="",
+            frame_number="",
+            revision="",
+        )
+        self.assertEqual(draft["filters"][0]["keptFrames"], 150)
+        self.assertEqual(draft["filters"][0]["totalFrames"], 190)
+        self.assertEqual(len(draft["nights"]), 1)
+        self.assertEqual(draft["nights"][0]["kept"], 150)
+        self.assertEqual(draft["nights"][0]["rejected"], 40)
+
+    def _touch(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"")
+
+    def test_parses_manual_processing_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "IC 1805 (Heart Nebula)" / "2025"
+            self._touch(root / ".Calibration" / "H" / "flat.fits")
+            self._touch(root / ".Finished" / "master.xisf")
+            session = root / ".SessionData"
+            self._touch(session / "2025-09-26" / "FLAT" / "H" / "flat.fits")
+            self._touch(
+                session / "2025-09-26" / "LIGHT" / "H"
+                / "2025-09-26_23-00-00__H_-10.00_300.00s__0000.fits"
+            )
+            self._touch(
+                session / "2025-09-26" / "LIGHT" / "H"
+                / "2025-09-26_23-30-00__H_-10.00_300.00s__0001.fits"
+            )
+            self._touch(
+                session / "2025-09-26" / "LIGHT" / "H"
+                / "2025-09-27_00-10-00__H_-10.00_300.00s__0002.fits"
+            )
+            self._touch(
+                session / "2025-09-26" / "LIGHT" / "H"
+                / "BAD_2025-09-26_23-45-00__H_-10.00_300.00s__0003.fits"
+            )
+            self._touch(
+                session / "2025-09-26" / "LIGHT" / "O"
+                / "2025-09-26_23-05-00__O_-10.00_300.00s__0000.fits"
+            )
+            self._touch(
+                session / "2025-10-16" / "LIGHT" / "R"
+                / "2025-10-16_20-00-00__R_-10.00_60.00s__0000.fits"
+            )
+            self._touch(
+                session / "2025-10-16" / "LIGHT" / "R"
+                / "2025-10-16_20-05-00__R_-10.00_60.00s__0001.fits"
+            )
+            (root / "3. Corrected" / "H").mkdir(parents=True)
+            self._touch(
+                root / "5. Registered" / "H"
+                / "2025-09-26_23-00-00__H_-10.00_300.00s__0000_c_a_r.xisf"
+            )
+            self._touch(
+                root / "5. Registered" / "H"
+                / "2025-09-26_23-00-00__H_-10.00_300.00s__0000_c_a_r.xdrz"
+            )
+            self._touch(
+                root / "5. Registered" / "H"
+                / "2025-09-27_00-10-00__H_-10.00_300.00s__0002_c_a_r.xisf"
+            )
+            self._touch(
+                root / "5. Registered" / "R"
+                / "2025-10-16_20-00-00__R_-10.00_60.00s__0000_c_a_r.xisf"
+            )
+            self._touch(
+                root / "6. LocalNormalized" / "H"
+                / "2025-09-26_23-00-00__H_-10.00_300.00s__0000_c_a_r.xnml"
+            )
+            self._touch(
+                root / "6. LocalNormalized" / "H"
+                / "2025-09-27_00-10-00__H_-10.00_300.00s__0002_c_a_r.xnml"
+            )
+            self._touch(
+                root / "6. LocalNormalized" / "H" / "ReferenceFrame"
+                / "2025-09-26_23-00-00__H_-10.00_300.00s__0000_c_a_r.xisf"
+            )
+            self._touch(root / "7. Integrated" / "H" / "MasterLight_H.xisf")
+
+            parsed = wbpp.parse_processing_dir(root)
+            draft = wbpp.build_draft(
+                root,
+                parsed,
+                "IC 1805 (Heart Nebula)",
+                {},
+                {},
+                bandwidth="3nm",
+                optics="",
+                sensor="",
+                sky="",
+                frame_number="",
+                revision="",
+            )
+
+            filters = {
+                row["name"]: (
+                    row["keptFrames"],
+                    row["totalFrames"],
+                    row["subLengthSeconds"],
+                )
+                for row in draft["filters"]
+            }
+            self.assertEqual(filters["Hα 3nm"], (2, 4, 300))
+            self.assertEqual(filters["OIII 3nm"], (0, 1, 300))
+            self.assertEqual(filters["R"], (1, 2, 60))
+            self.assertEqual(draft["frame"]["palette"], "HOO")
+            self.assertEqual(draft["frame"]["capturedOn"], "2025-10-16")
+            self.assertEqual(draft["sources"]["processingDirs"], [str(root)])
+            ha_night = next(
+                row
+                for row in draft["nights"]
+                if row["filterLabel"] == "Hα" and row["nightDate"] == "2025-09-26"
+            )
+            self.assertEqual(ha_night["kept"], 2)
+            self.assertEqual(ha_night["rejected"], 2)
+            self.assertTrue(any("3. Corrected" in warning for warning in parsed.warnings))
+            self.assertTrue(
+                any("Ha from 6. LocalNormalized" in warning for warning in parsed.warnings)
+            )
+            self.assertTrue(
+                any("R from 5. Registered" in warning for warning in parsed.warnings)
+            )
+            self.assertTrue(wbpp.is_processing_dir(root))
+
+    def test_parses_old_camera_single_underscore_filenames(self) -> None:
+        match = wbpp.parse_light_filename("2025-07-22_22-22-30_B_-19.90_300.00s_0000.fits")
+        assert match is not None
+        self.assertEqual(match["date"], "2025-07-22")
+        self.assertEqual(match["filter"], "B")
+        self.assertEqual(float(match["exposure"]), 300.0)
+        match_new = wbpp.parse_light_filename(
+            "2025-09-26_23-57-29__H_-10.00_300.00s__0003_c_a_r.xisf"
+        )
+        assert match_new is not None
+        self.assertEqual(match_new["filter"], "H")
+        self.assertEqual(match_new["seq"], "0003")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "IC 63 (Ghost of Cassiopeia)" / "2025"
+            session = root / ".SessionData" / "2025-07-22" / "LIGHT"
+            self._touch(session / "H" / "2025-07-23_00-05-26_H_-20.00_300.00s_0000.fits")
+            self._touch(session / "R" / "2025-07-22_22-02-19_R_-19.90_300.00s_0000.fits")
+            self._touch(
+                root / "5. Registered" / "H"
+                / "2025-07-23_00-05-26_H_-20.00_300.00s_0000_c_a_r.xisf"
+            )
+            self._touch(
+                root / "5. Registered" / "R"
+                / "2025-07-22_22-02-19_R_-19.90_300.00s_0000_c_a_r.xisf"
+            )
+            parsed = wbpp.parse_processing_dir(root)
+            draft = wbpp.build_draft(
+                root,
+                parsed,
+                "IC 63 (Ghost of Cassiopeia)",
+                {},
+                {},
+                bandwidth="3nm",
+                optics="",
+                sensor="",
+                sky="",
+                frame_number="",
+                revision="",
+            )
+        self.assertEqual(draft["frame"]["capturedOn"], "2025-07-22")
+        filters = {row["name"]: (row["keptFrames"], row["totalFrames"]) for row in draft["filters"]}
+        self.assertEqual(filters["Hα 3nm"], (1, 1))
+        self.assertEqual(filters["R"], (1, 1))
 
 
 class EnrichmentTests(unittest.TestCase):

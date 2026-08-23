@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a reviewable AstroBlog frame draft from a PixInsight WBPP log."""
+"""Build a reviewable AstroBlog frame draft from one or more PixInsight WBPP logs."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import argparse
 import csv
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -36,6 +37,19 @@ CENTER_RE = re.compile(
 RESOLUTION_RE = re.compile(r"Resolution:\s*([0-9.]+)\s*as/px", re.I)
 PATH_RE = re.compile(r'"([^"]+\.(?:fits?|xisf|xdrz))"', re.I)
 SOURCE_PATH_RE = re.compile(r"([A-Za-z]:[/\\][^\r\n]*?\.fits?)", re.I)
+LIGHT_NAME_RE = re.compile(
+    r"^(?:BAD_)?(?P<date>\d{4}-\d{2}-\d{2})_(?P<time>\d{2}-\d{2}-\d{2})_+"
+    r"(?P<filter>[A-Za-z0-9]+)_(?P<temp>[+-]?\d+(?:\.\d+)?)_"
+    r"(?P<exposure>\d+(?:\.\d+)?)s_+(?P<seq>\d+)",
+    re.I,
+)
+PIPELINE_DIR_RE = re.compile(r"^(\d+)\.\s+")
+NIGHT_DIR_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+YEAR_DIR_RE = re.compile(r"^\d{4}$")
+SESSION_DIR_NAME = ".SessionData"
+IGNORE_WALK_DIRS = {".finished", ".calibration", "referenceframe", "flat"}
+LIGHT_EXTS = {".fit", ".fits", ".xisf", ".xnml"}
+MAX_PER_FRAME_STEP = 6
 
 DEFAULT_SIMBAD_URL = "https://simbad.cds.unistra.fr/simbad/sim-tap/sync"
 DEFAULT_WIKIDATA_URL = "https://www.wikidata.org/w/api.php"
@@ -162,13 +176,16 @@ def normalize_filter(name: str) -> str:
     compact = re.sub(r"[^a-z0-9]+", "", name.casefold())
     aliases = {
         "ha": "Ha",
+        "h": "Ha",
         "halpha": "Ha",
         "hydrogenalpha": "Ha",
         "oiii": "OIII",
         "o3": "OIII",
+        "o": "OIII",
         "oxygeniii": "OIII",
         "sii": "SII",
         "s2": "SII",
+        "s": "SII",
         "sulfurii": "SII",
         "sulphurii": "SII",
         "l": "L",
@@ -229,6 +246,62 @@ def _unique_groups(groups: Iterable[Group]) -> list[Group]:
             seen.add(group)
             result.append(group)
     return result
+
+
+def best_integration_groups(groups: Iterable[Group]) -> dict[tuple[str, float], Group]:
+    best: dict[tuple[str, float], Group] = {}
+    for group in groups:
+        key = (group.filter_name, group.exposure)
+        if key not in best or group.total > best[key].total:
+            best[key] = group
+    return best
+
+
+def as_log_paths(value: Path | str | Iterable[Path | str]) -> list[Path]:
+    if isinstance(value, (str, Path)):
+        return [Path(value)]
+    return [Path(item) for item in value]
+
+
+def source_kind(path: Path) -> str:
+    if path.exists():
+        return "dir" if path.is_dir() else "log"
+    if path.suffix.lower() == ".log":
+        return "log"
+    return "dir"
+
+
+def unique_log_paths(paths: Iterable[Path]) -> list[Path]:
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for path in paths:
+        try:
+            key = str(path.resolve())
+        except OSError:
+            key = str(path)
+        if key not in seen:
+            seen.add(key)
+            unique.append(path)
+    return unique
+
+
+def log_labels(paths: Iterable[Path]) -> list[str]:
+    items = list(paths)
+    labels: list[str] = []
+    for path in items:
+        if path.exists() and path.is_dir() and path.parent.name:
+            labels.append(f"{path.parent.name}/{path.name}")
+        else:
+            labels.append(path.name)
+    if len(labels) == len(set(labels)):
+        return labels
+    return [f"{path.parent.name}/{path.name}" for path in items]
+
+
+def angular_separation_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
+    r1, d1, r2, d2 = (math.radians(value) for value in (ra1, dec1, ra2, dec2))
+    cos_c = math.sin(d1) * math.sin(d2) + math.cos(d1) * math.cos(d2) * math.cos(r1 - r2)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cos_c))))
 
 
 def parse_wbpp_log(path: Path) -> ParseResult:
@@ -358,11 +431,7 @@ def parse_wbpp_log(path: Path) -> ParseResult:
     if not integration_groups:
         warnings.append("No final light ImageIntegration groups were found.")
 
-    expected_by_filter: dict[tuple[str, float], Group] = {}
-    for group in integration_groups:
-        key = (group.filter_name, group.exposure)
-        if key not in expected_by_filter or group.total > expected_by_filter[key].total:
-            expected_by_filter[key] = group
+    expected_by_filter = best_integration_groups(integration_groups)
     expected_kept = sum(group.active for group in expected_by_filter.values())
     mapped_kept = sum(kept_by_night.values())
     if mapped_kept and mapped_kept != expected_kept:
@@ -386,15 +455,408 @@ def parse_wbpp_log(path: Path) -> ParseResult:
     )
 
 
+def is_processing_dir(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    try:
+        names = [child.name for child in path.iterdir()]
+    except OSError:
+        return False
+    lowered = {name.casefold() for name in names}
+    if SESSION_DIR_NAME.casefold() in lowered:
+        return True
+    return any(PIPELINE_DIR_RE.match(name) for name in names)
+
+
+def parse_light_filename(name: str) -> re.Match[str] | None:
+    return LIGHT_NAME_RE.match(Path(name).stem)
+
+
+def capture_id(name: str) -> str | None:
+    match = parse_light_filename(name)
+    if not match:
+        return None
+    return (
+        f"{match['date']}_{match['time']}__{match['filter']}_{match['temp']}_"
+        f"{match['exposure']}s__{match['seq']}"
+    )
+
+
+def night_from_parent(path: Path) -> str | None:
+    for part in path.parts:
+        if NIGHT_DIR_RE.match(part):
+            return part
+    return None
+
+
+def iter_frame_files(folder: Path) -> list[Path]:
+    files: list[Path] = []
+    if not folder.is_dir():
+        return files
+    for dirpath, dirnames, filenames in os.walk(folder):
+        dirnames[:] = [name for name in dirnames if name.casefold() not in IGNORE_WALK_DIRS]
+        for filename in filenames:
+            if Path(filename).suffix.lower() in LIGHT_EXTS:
+                files.append(Path(dirpath) / filename)
+    return files
+
+
+def unique_capture_files(
+    files: Iterable[Path],
+    default_filter: str,
+) -> list[tuple[str, str, float, str | None, str | None]]:
+    seen: set[str] = set()
+    records: list[tuple[str, str, float, str | None, str | None]] = []
+    for path in files:
+        match = parse_light_filename(path.name)
+        if match:
+            key = capture_id(path.name) or str(path)
+            exposure = float(match["exposure"])
+            filt = default_filter or normalize_filter(match["filter"])
+            stamp_date = match["date"]
+        else:
+            continue
+        if not filt or key in seen:
+            continue
+        seen.add(key)
+        records.append((key, filt, exposure, night_from_parent(path), stamp_date))
+    return records
+
+
+def pipeline_dirs(root: Path) -> list[tuple[int, Path]]:
+    found: list[tuple[int, Path]] = []
+    for child in root.iterdir():
+        if not child.is_dir():
+            continue
+        match = PIPELINE_DIR_RE.match(child.name)
+        if match:
+            found.append((int(match.group(1)), child))
+    return sorted(found)
+
+
+def filter_subdir(stage: Path, filter_name: str) -> Path | None:
+    if not stage.is_dir():
+        return None
+    for child in stage.iterdir():
+        if child.is_dir() and normalize_filter(child.name) == filter_name:
+            return child
+    return None
+
+
+def parse_input(path: Path) -> ParseResult:
+    if path.is_dir():
+        return parse_processing_dir(path)
+    return parse_wbpp_log(path)
+
+
+def parse_processing_dir(root: Path) -> ParseResult:
+    warnings: list[str] = []
+    calibration_groups: list[Group] = []
+    session_index: dict[str, tuple[str, str, float]] = {}
+    session = root / SESSION_DIR_NAME
+
+    session_light_files = 0
+    if session.is_dir():
+        for night_dir in sorted(session.iterdir()):
+            if not night_dir.is_dir() or not NIGHT_DIR_RE.match(night_dir.name):
+                continue
+            light_root = night_dir / "LIGHT"
+            if not light_root.is_dir():
+                continue
+            for filt_dir in sorted(light_root.iterdir()):
+                if not filt_dir.is_dir():
+                    continue
+                filt = normalize_filter(filt_dir.name)
+                frame_files = iter_frame_files(filt_dir)
+                session_light_files += len(frame_files)
+                counts: dict[float, int] = defaultdict(int)
+                for key, _name, exposure, _night, _stamp in unique_capture_files(
+                    frame_files, filt
+                ):
+                    session_index[key] = (night_dir.name, filt, exposure)
+                    counts[exposure] += 1
+                for exposure, total in counts.items():
+                    calibration_groups.append(
+                        Group(filt, exposure, total, total, night_dir.name)
+                    )
+    else:
+        warnings.append(
+            "No .SessionData directory was found; acquired lights could not be counted."
+        )
+
+    if not calibration_groups:
+        if session_light_files:
+            warnings.append(
+                "SessionData LIGHT files were found but did not match the expected "
+                "filename pattern; acquired counts may be missing."
+            )
+        else:
+            warnings.append("No LIGHT frames were found under .SessionData.")
+
+    stages = [
+        (number, path)
+        for number, path in pipeline_dirs(root)
+        if 1 <= number <= MAX_PER_FRAME_STEP
+    ]
+    empty_stages = [
+        path.name
+        for number, path in stages
+        if not iter_frame_files(path)
+    ]
+    if empty_stages:
+        warnings.append(
+            "Empty pipeline stages were skipped: " + ", ".join(empty_stages) + "."
+        )
+
+    filters = {group.filter_name for group in calibration_groups}
+    for _number, stage in stages:
+        for child in stage.iterdir():
+            if child.is_dir() and child.name.casefold() not in IGNORE_WALK_DIRS:
+                filters.add(normalize_filter(child.name))
+
+    kept_by_night: Counter[tuple[str, str]] = Counter()
+    kept_totals: dict[tuple[str, float], int] = defaultdict(int)
+    stage_used: list[str] = []
+
+    for filt in sorted(filters, key=lambda name: filter_sort_key((name, 0))):
+        chosen: list[Path] = []
+        chosen_stage = ""
+        for _number, stage in reversed(stages):
+            folder = filter_subdir(stage, filt)
+            if folder is None:
+                continue
+            files = iter_frame_files(folder)
+            if files:
+                chosen = files
+                chosen_stage = stage.name
+                break
+        if chosen_stage:
+            stage_used.append(f"{filt} from {chosen_stage}")
+        unmatched = 0
+        for key, name, exposure, parent_night, stamp_date in unique_capture_files(
+            chosen, filt
+        ):
+            if key in session_index:
+                night, name, exposure = session_index[key]
+            else:
+                night = parent_night or stamp_date
+                unmatched += 1
+            if not night:
+                warnings.append(
+                    f"Could not map a kept {name} frame to a session night: {key}."
+                )
+                continue
+            kept_by_night[(night, name)] += 1
+            kept_totals[(name, exposure)] += 1
+        if unmatched:
+            warnings.append(
+                f"{unmatched} kept {filt} frame(s) were not found in .SessionData; "
+                "night dates fell back to the filename timestamp."
+            )
+
+    if stage_used:
+        warnings.append("Kept frames counted per filter: " + "; ".join(stage_used) + ".")
+
+    acquired_totals: dict[tuple[str, float], int] = defaultdict(int)
+    for group in calibration_groups:
+        acquired_totals[(group.filter_name, group.exposure)] += group.total
+
+    integration_groups = [
+        Group(name, exposure, acquired_totals.get((name, exposure), kept), kept)
+        for (name, exposure), kept in kept_totals.items()
+    ]
+    for key, total in acquired_totals.items():
+        if key not in kept_totals:
+            integration_groups.append(Group(key[0], key[1], total, 0))
+
+    expected_kept = sum(group.active for group in integration_groups)
+    mapped_kept = sum(kept_by_night.values())
+    if mapped_kept and mapped_kept != expected_kept:
+        warnings.append(
+            f"Mapped {mapped_kept} of {expected_kept} kept frames to session nights; "
+            "night rows are incomplete."
+        )
+
+    return ParseResult(
+        wbpp_version=None,
+        calibration_groups=calibration_groups,
+        integration_groups=integration_groups,
+        kept_by_night=kept_by_night,
+        center_ra=None,
+        center_dec=None,
+        center_ra_deg=None,
+        center_dec_deg=None,
+        pixel_size_um=None,
+        arcsec_per_px=None,
+        warnings=warnings,
+    )
+
+
+GENERIC_TARGET_HINTS = {
+    "stars",
+    "star",
+    "rgb",
+    "lrgb",
+    "mosaic",
+    "panel",
+    "narrowband",
+    "nb",
+    "ha",
+    "h",
+    "oiii",
+    "o",
+    "sii",
+    "s",
+    "l",
+    "r",
+    "g",
+    "b",
+    "logs",
+    "wbpp",
+    "light",
+    "flat",
+    "blinked",
+    "calibrated",
+    "corrected",
+    "weighted",
+    "registered",
+    "localnormalized",
+    "integrated",
+    "sessiondata",
+    "referenceframe",
+    "finished",
+    "calibration",
+}
+
+
+def is_drive_part(part: str) -> bool:
+    return bool(re.match(r"^[A-Za-z]:\\?$", part))
+
+
+def is_generic_target_hint(hint: str) -> bool:
+    text = hint.strip()
+    compact = re.sub(r"[^a-z0-9]+", "", text.casefold())
+    if compact in GENERIC_TARGET_HINTS:
+        return True
+    if YEAR_DIR_RE.match(text) or NIGHT_DIR_RE.match(text):
+        return True
+    if PIPELINE_DIR_RE.match(text):
+        return True
+    return bool(re.match(r"(?i)^(panel|mosaic)[-_ ]?\d*$", text))
+
+
 def target_hint_from_path(log_path: str) -> str:
     windows = PureWindowsPath(log_path.replace("/", "\\"))
-    parts = windows.parts
-    lowered = [part.casefold() for part in parts]
-    if "wbpp" in lowered:
-        index = lowered.index("wbpp")
-        if index > 0:
-            return parts[index - 1]
-    return windows.stem
+    parts = list(windows.parts)
+    if windows.suffix:
+        parts = parts[:-1]
+    for part in reversed(parts):
+        if is_drive_part(part) or is_generic_target_hint(part):
+            continue
+        return part
+    return windows.parent.name if windows.suffix else windows.name
+
+
+def prefer_target_hint(hints: Iterable[str], override: str = "") -> str:
+    if override.strip():
+        return override.strip()
+    ordered = list(dict.fromkeys(item.strip() for item in hints if item and item.strip()))
+    specific = [item for item in ordered if not is_generic_target_hint(item)]
+    if specific:
+        return specific[0]
+    return ordered[0] if ordered else ""
+
+
+def merge_parse_results(results: list[tuple[str, ParseResult]]) -> ParseResult:
+    if not results:
+        raise ValueError("At least one WBPP parse result is required.")
+    if len(results) == 1:
+        return results[0][1]
+
+    calibration_groups: list[Group] = []
+    integration_totals: dict[tuple[str, float], list[int]] = defaultdict(lambda: [0, 0])
+    kept_by_night: Counter[tuple[str, str]] = Counter()
+    warnings: list[str] = []
+    versions: list[str] = []
+    center_ra = center_dec = None
+    center_ra_deg = center_dec_deg = pixel_size_um = arcsec_per_px = None
+
+    for label, parsed in results:
+        calibration_groups.extend(parsed.calibration_groups)
+        for key, group in best_integration_groups(parsed.integration_groups).items():
+            integration_totals[key][0] += group.total
+            integration_totals[key][1] += group.active
+        kept_by_night.update(parsed.kept_by_night)
+        for warning in parsed.warnings:
+            warnings.append(f"{label}: {warning}" if label else warning)
+        if parsed.wbpp_version:
+            versions.append(parsed.wbpp_version)
+
+        if parsed.center_ra_deg is not None and parsed.center_dec_deg is not None:
+            if center_ra_deg is None or center_dec_deg is None:
+                center_ra = parsed.center_ra
+                center_dec = parsed.center_dec
+                center_ra_deg = parsed.center_ra_deg
+                center_dec_deg = parsed.center_dec_deg
+            else:
+                delta = angular_separation_deg(
+                    center_ra_deg,
+                    center_dec_deg,
+                    parsed.center_ra_deg,
+                    parsed.center_dec_deg,
+                )
+                if delta > 0.5:
+                    warnings.append(
+                        f"{label}: WBPP image center differs by {delta:.1f}° from the first "
+                        "solved log (mosaic?); using the first solved center."
+                    )
+
+        if parsed.pixel_size_um is not None:
+            if pixel_size_um is None:
+                pixel_size_um = parsed.pixel_size_um
+            elif abs(parsed.pixel_size_um - pixel_size_um) > 0.05:
+                warnings.append(
+                    f"{label}: pixel size {parsed.pixel_size_um:g} µm differs from "
+                    f"{pixel_size_um:g} µm in an earlier log."
+                )
+        if parsed.arcsec_per_px is not None:
+            if arcsec_per_px is None:
+                arcsec_per_px = parsed.arcsec_per_px
+            elif abs(parsed.arcsec_per_px - arcsec_per_px) > 0.05:
+                warnings.append(
+                    f"{label}: image scale {parsed.arcsec_per_px:g} as/px differs from "
+                    f"{arcsec_per_px:g} as/px in an earlier log."
+                )
+
+    unique_versions = list(dict.fromkeys(versions))
+    if len(unique_versions) > 1:
+        warnings.append(f"WBPP versions differ across logs: {', '.join(unique_versions)}.")
+
+    integration_groups = [
+        Group(name, exposure, total, active)
+        for (name, exposure), (total, active) in integration_totals.items()
+    ]
+    expected_kept = sum(active for _, active in integration_totals.values())
+    mapped_kept = sum(kept_by_night.values())
+    if mapped_kept and mapped_kept != expected_kept:
+        warnings.append(
+            f"Mapped {mapped_kept} of {expected_kept} integrated frames to NIGHT sessions "
+            "after merging logs; night rows are incomplete."
+        )
+
+    return ParseResult(
+        wbpp_version=unique_versions[0] if unique_versions else None,
+        calibration_groups=calibration_groups,
+        integration_groups=integration_groups,
+        kept_by_night=kept_by_night,
+        center_ra=center_ra,
+        center_dec=center_dec,
+        center_ra_deg=center_ra_deg,
+        center_dec_deg=center_dec_deg,
+        pixel_size_um=pixel_size_um,
+        arcsec_per_px=arcsec_per_px,
+        warnings=warnings,
+    )
 
 
 def target_candidates(hint: str) -> list[str]:
@@ -461,6 +923,14 @@ def resolve_ollama_model(host: str, timeout: float) -> str:
 def slugify(value: str) -> str:
     value = value.casefold().encode("ascii", "ignore").decode("ascii")
     return re.sub(r"(^-+|-+$)", "", re.sub(r"[^a-z0-9]+", "-", value))[:80]
+
+
+def frame_slug(catalog_id: str, revision: str = "") -> str:
+    base = slugify(catalog_id)
+    rev = slugify(revision)
+    if not base or not rev:
+        return base
+    return f"{base}-{rev}"[:80]
 
 
 def adql_quote(value: str) -> str:
@@ -1145,7 +1615,7 @@ def preferred_catalog_ids(simbad: dict[str, Any]) -> list[str]:
 
 
 def build_draft(
-    log_path: Path,
+    log_path: Path | str | Iterable[Path | str],
     parsed: ParseResult,
     target_hint: str,
     simbad: dict[str, Any],
@@ -1158,6 +1628,18 @@ def build_draft(
     frame_number: str,
     revision: str,
 ) -> dict[str, Any]:
+    log_paths = as_log_paths(log_path)
+    log_files = [path for path in log_paths if source_kind(path) == "log"]
+    processing_dirs = [path for path in log_paths if source_kind(path) == "dir"]
+    acquisition_parts: list[str] = []
+    if log_files:
+        acquisition_parts.append(
+            "WBPP light calibration and final ImageIntegration groups"
+        )
+    if processing_dirs:
+        acquisition_parts.append(
+            "manual processing directory (.SessionData lights and last populated pipeline stage)"
+        )
     acquired: dict[tuple[str, float], int] = defaultdict(int)
     acquired_nights: dict[tuple[str, str, float], int] = defaultdict(int)
     for group in parsed.calibration_groups:
@@ -1166,19 +1648,16 @@ def build_draft(
         acquired[(group.filter_name, group.exposure)] += group.total
         acquired_nights[(group.night, group.filter_name, group.exposure)] += group.total
 
-    integrated_groups: dict[tuple[str, float], Group] = {}
-    for group in parsed.integration_groups:
-        key = (group.filter_name, group.exposure)
-        if key not in integrated_groups or group.total > integrated_groups[key].total:
-            integrated_groups[key] = group
+    integrated_groups = best_integration_groups(parsed.integration_groups)
     integrated = {key: group.active for key, group in integrated_groups.items()}
 
     filters: list[dict[str, Any]] = []
     total_seconds = 0.0
-    for key in sorted(acquired, key=filter_sort_key):
+    filter_keys = set(acquired) | set(integrated)
+    for key in sorted(filter_keys, key=filter_sort_key):
         name, exposure = key
         kept = integrated.get(key, 0)
-        total = acquired[key]
+        total = max(acquired.get(key, 0), kept)
         integration_minutes = int(round(kept * exposure / 60))
         total_seconds += kept * exposure
         filters.append(
@@ -1192,10 +1671,12 @@ def build_draft(
             }
         )
 
-    dates = sorted({key[0] for key in acquired_nights})
+    dates = sorted(
+        {key[0] for key in acquired_nights} | {night for night, _filt in parsed.kept_by_night}
+    )
     nights: list[dict[str, Any]] = []
     mapped_nights_complete = sum(parsed.kept_by_night.values()) == sum(integrated.values())
-    if mapped_nights_complete:
+    if mapped_nights_complete and acquired_nights:
         for (night, filter_name, exposure), total in sorted(acquired_nights.items()):
             kept = parsed.kept_by_night[(night, filter_name)]
             nights.append(
@@ -1208,13 +1689,27 @@ def build_draft(
                     "reason": "",
                 }
             )
+    elif mapped_nights_complete and parsed.kept_by_night:
+        exposure_by_filter = {name: exposure for name, exposure in integrated}
+        for (night, filter_name), kept in sorted(parsed.kept_by_night.items()):
+            exposure = exposure_by_filter.get(filter_name, 0.0)
+            nights.append(
+                {
+                    "nightDate": night,
+                    "filterLabel": display_filter(filter_name, ""),
+                    "subLengthSeconds": round(exposure),
+                    "kept": kept,
+                    "rejected": 0,
+                    "reason": "",
+                }
+            )
 
     aliases = [str(item) for item in simbad.get("aliases", [])]
     main_id = str(simbad.get("main_id") or "").strip()
     matched_id = str(simbad.get("matched_query") or "").strip()
     catalog_id = matched_id or main_id or (target_candidates(target_hint)[0] if target_hint else "")
     catalog_line = " · ".join(preferred_catalog_ids(simbad))
-    palette = infer_palette(name for name, _ in acquired)
+    palette = infer_palette(name for name, _ in filter_keys)
     minutes = int(round(total_seconds / 60))
     simbad_class = humanize_otype(str(simbad.get("otype") or ""))
     object_class = simbad_class or enrichment.get("objectClass", "")
@@ -1231,6 +1726,8 @@ def build_draft(
             "Per-night kept/rejected counts could not be mapped completely; nights is empty "
             "rather than containing estimated values."
         )
+    if not dates:
+        warning_list.append("No session dates were found; frame.capturedOn was left empty.")
     if not bandwidth:
         warning_list.append("Filter bandwidth is not present in the WBPP log.")
     if not simbad:
@@ -1253,7 +1750,7 @@ def build_draft(
     sky_label = sky or DEFAULT_SKY_LABEL
 
     frame = {
-        "slug": slugify(catalog_id),
+        "slug": frame_slug(catalog_id, revision),
         "catalogId": truncate(catalog_id, 120),
         "commonName": truncate(common_name, 120),
         "frameNumber": truncate(frame_number, 20),
@@ -1303,10 +1800,14 @@ def build_draft(
                 "decDegrees": parsed.center_dec_deg,
             },
             "allCatalogIdentifiers": aliases,
+            "wbppLogs": [str(path) for path in log_files],
+            "processingDirs": [str(path) for path in processing_dirs],
         },
         "sources": {
-            "wbppLog": str(log_path),
-            "acquisition": "WBPP light calibration and final ImageIntegration groups",
+            "wbppLog": str(log_files[0]) if len(log_files) == 1 else [str(path) for path in log_files] or None,
+            "wbppLogs": [str(path) for path in log_files],
+            "processingDirs": [str(path) for path in processing_dirs],
+            "acquisition": " + ".join(acquisition_parts) or None,
             "targetCatalog": " + ".join(
                 part
                 for part, present in (
@@ -1325,9 +1826,15 @@ def build_draft(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Parse a WBPP log and write an AstroBlog new-frame JSON draft."
+        description="Parse WBPP logs and/or manual processing directories into an AstroBlog JSON draft."
     )
-    parser.add_argument("log", type=Path, help="Path to a WBPP log file")
+    parser.add_argument(
+        "inputs",
+        nargs="+",
+        type=Path,
+        metavar="INPUT",
+        help="WBPP log files and/or manual processing directories to merge into a single draft",
+    )
     parser.add_argument("-o", "--output", type=Path, help="Output JSON path (default: stdout)")
     parser.add_argument("--target", help="Target name override")
     parser.add_argument("--bandwidth", default="", help="Filter bandwidth, e.g. 3nm")
@@ -1357,12 +1864,43 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
-    if not args.log.is_file():
-        print(f"error: log file not found: {args.log}", file=sys.stderr)
+    log_paths = unique_log_paths(args.inputs)
+    missing = [path for path in log_paths if not path.exists()]
+    if missing:
+        print(f"error: input not found: {missing[0]}", file=sys.stderr)
+        return 2
+    invalid = [
+        path
+        for path in log_paths
+        if path.is_dir() and not is_processing_dir(path)
+    ]
+    if invalid:
+        print(
+            f"error: directory is not a WBPP processing folder "
+            f"(.SessionData or numbered pipeline steps): {invalid[0]}",
+            file=sys.stderr,
+        )
         return 2
 
-    parsed = parse_wbpp_log(args.log)
-    target_hint = args.target or target_hint_from_path(str(args.log))
+    parsed_logs = [
+        (label, parse_input(path))
+        for label, path in zip(log_labels(log_paths), log_paths)
+    ]
+    parsed = merge_parse_results(parsed_logs)
+    hints = [target_hint_from_path(str(path)) for path in log_paths]
+    target_hint = prefer_target_hint(hints, args.target or "")
+    specific_hints = [
+        hint for hint in dict.fromkeys(hints) if hint and not is_generic_target_hint(hint)
+    ]
+    if len(specific_hints) > 1:
+        parsed.warnings.append(
+            f"Multiple target folder names found: {', '.join(specific_hints)}; "
+            f"using {target_hint}."
+        )
+    if len(log_paths) > 1:
+        parsed.warnings.append(
+            f"Merged {len(log_paths)} inputs: {', '.join(log_labels(log_paths))}."
+        )
     simbad: dict[str, Any] = {}
     external_warnings: list[str] = []
     simbad_timeout = float(
@@ -1446,7 +1984,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parsed.warnings.extend(external_warnings)
     draft = build_draft(
-        args.log,
+        log_paths,
         parsed,
         target_hint,
         simbad,

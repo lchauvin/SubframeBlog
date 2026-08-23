@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { slugify } from "@/lib/format";
+import { slugify, frameSlug } from "@/lib/format";
 import { requireAdmin } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import {
@@ -106,7 +106,7 @@ export async function saveFrame(_prev: FormState, formData: FormData): Promise<F
     return { error: "Could not read the form data." };
   }
 
-  const slug = slugify(data.slug || data.catalogId);
+  const slug = slugify(data.slug) || frameSlug(data.catalogId, data.revision);
   if (!slug) return { error: "Could not derive a slug — give the frame a catalog ID." };
   if (await slugExists(slug, id ?? undefined)) {
     return { error: `The slug "${slug}" is already used by another frame.` };

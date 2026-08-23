@@ -77,7 +77,12 @@ export default async function AdminFramesPage() {
                     {frame.catalogId}
                     {frame.commonName ? ` — ${frame.commonName}` : ""}
                   </div>
-                  <div className={styles.listSlug}>/frame/{frame.slug}</div>
+                  <div className={styles.listSlug}>
+                    {frame.frameNumber
+                      ? `${frame.frameNumber}${frame.revision ? ` / ${frame.revision}` : ""} · `
+                      : ""}
+                    /frame/{frame.slug}
+                  </div>
                 </div>
 
                 <div className={styles.listMeta}>{formatMonthYear(frame.capturedOn)}</div>

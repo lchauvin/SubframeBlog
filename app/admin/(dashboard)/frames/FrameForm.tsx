@@ -8,7 +8,8 @@ import { RowEditor, type RowValue } from "@/components/admin/RowEditor";
 import { ImageUploader, type VariantSummary } from "@/components/admin/ImageUploader";
 import { SolveStatus } from "@/components/admin/SolveStatus";
 import { AnnotationPreview } from "@/components/admin/AnnotationPreview";
-import { slugify } from "@/lib/format";
+import { downloadFrameDraft, frameDraftFromFormData } from "@/lib/frame-draft";
+import { frameSlug } from "@/lib/format";
 
 import { deleteFrame, saveFrame, type FormState } from "../../actions";
 import styles from "../../admin.module.css";
@@ -86,6 +87,24 @@ function SaveButton() {
   );
 }
 
+function ExportDraftButton() {
+  return (
+    <button
+      type="button"
+      className={styles.button}
+      onClick={(event) => {
+        const form = event.currentTarget.form;
+        if (!form) return;
+        const draft = frameDraftFromFormData(new FormData(form));
+        const slug = String(draft.frame.slug || draft.frame.catalogId || "frame");
+        downloadFrameDraft(draft, `${slug}-frame.json`);
+      }}
+    >
+      Export JSON
+    </button>
+  );
+}
+
 function DeleteButton() {
   const { pending } = useFormStatus();
   return (
@@ -128,12 +147,13 @@ export function FrameForm({
   );
 
   const [catalogId, setCatalogId] = useState(values.catalogId);
+  const [revision, setRevision] = useState(values.revision);
   const [slug, setSlug] = useState(values.slug);
   const [slugTouched, setSlugTouched] = useState(Boolean(values.slug));
   const [annotationRows, setAnnotationRows] = useState(annotations);
 
   // Auto-derive the slug until it is edited by hand, then leave it alone.
-  const effectiveSlug = slugTouched ? slug : slugify(catalogId);
+  const effectiveSlug = slugTouched ? slug : frameSlug(catalogId, revision);
 
   const text = (key: keyof FrameFormValues, label: string, wide = false) => (
     <div className={`${styles.field} ${wide ? styles.fieldWide : ""}`}>
@@ -244,7 +264,22 @@ export function FrameForm({
           </div>
 
           {text("frameNumber", "Frame number")}
-          {text("revision", "Revision")}
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="revision">
+              Revision
+            </label>
+            <input
+              id="revision"
+              name="revision"
+              className={styles.input}
+              value={revision}
+              onChange={(event) => setRevision(event.target.value)}
+            />
+            <span className={styles.hint}>
+              Same frame number can be reused (004 / A, 004 / B). The slug includes the
+              revision so each processing has its own page.
+            </span>
+          </div>
           {text("palette", "Palette")}
           {text("bandwidth", "Bandwidth")}
 
@@ -485,6 +520,7 @@ export function FrameForm({
             View ↗
           </Link>
         ) : null}
+        {values.id ? <ExportDraftButton /> : null}
         <span className={styles.spacer} />
         {values.id ? <DeleteButton /> : null}
       </div>

@@ -48,6 +48,14 @@ export function slugify(input: string): string {
     .slice(0, 80);
 }
 
+/** "IC 1805" + "B" -> "ic-1805-b". Empty revision keeps the catalog slug. */
+export function frameSlug(catalogId: string, revision = ""): string {
+  const base = slugify(catalogId);
+  const rev = slugify(revision);
+  if (!base || !rev) return base;
+  return `${base}-${rev}`.slice(0, 80);
+}
+
 /** Splits authored copy into paragraphs on blank lines. No HTML is interpreted. */
 export function toParagraphs(markdown: string): string[] {
   return (markdown ?? "")
