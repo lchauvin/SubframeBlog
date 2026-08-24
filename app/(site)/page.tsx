@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { FrameImage } from "@/components/FrameImage";
 import { RegistrationMarks } from "@/components/RegistrationMarks";
 import { DEFAULT_SITE_SETTINGS } from "@/lib/defaults";
 import { formatMonthYear } from "@/lib/format";
+import { shareMetadata, siteOrigin } from "@/lib/share-meta";
 import {
   getLogSummary,
   getSiteSettings,
@@ -13,6 +15,23 @@ import {
 import { useRequestTimeRendering } from "@/server/rendering";
 
 import styles from "./gallery.module.css";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const [frames, settings, origin] = await Promise.all([
+    listPublishedFrames(),
+    getSiteSettings(),
+    siteOrigin(),
+  ]);
+  const chrome = settings ?? DEFAULT_SITE_SETTINGS;
+  return shareMetadata({
+    title: chrome.logHeading,
+    description: `${chrome.siteName} — ${chrome.siteTagline}`,
+    images: frames[0]?.images,
+    path: "/",
+    origin,
+    siteName: chrome.siteName,
+  });
+}
 
 export default async function LogPage() {
   await useRequestTimeRendering();

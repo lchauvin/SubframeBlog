@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { DEFAULT_SITE_SETTINGS, pickGearRows } from "@/lib/defaults";
 import { toParagraphs } from "@/lib/format";
+import { shareMetadata, siteOrigin } from "@/lib/share-meta";
 import {
   getFrameBySlug,
   getGearItems,
@@ -14,7 +15,23 @@ import { useRequestTimeRendering } from "@/server/rendering";
 
 import styles from "./about.module.css";
 
-export const metadata: Metadata = { title: "About & rig" };
+export async function generateMetadata(): Promise<Metadata> {
+  const [settingsRow, origin] = await Promise.all([getSiteSettings(), siteOrigin()]);
+  const settings = settingsRow ?? DEFAULT_SITE_SETTINGS;
+  const heroFrame = settings.aboutHeroSlug
+    ? await getFrameBySlug(settings.aboutHeroSlug)
+    : (await listPublishedFrames())[0] ?? null;
+  const description =
+    toParagraphs(settings.aboutBody)[0] ?? "Narrowband astrophotography from a Bortle 9 sky.";
+  return shareMetadata({
+    title: "About & rig",
+    description,
+    images: heroFrame?.images,
+    path: "/about",
+    origin,
+    siteName: settings.siteName,
+  });
+}
 
 export default async function AboutPage() {
   await useRequestTimeRendering();

@@ -62,11 +62,9 @@
 }
 
 .rejected {
-  background: repeating-linear-gradient(
-    135deg,
-    var(--hatch) 0 2px,
-    transparent 2px 4px
-  );
+  background: repeating-linear-gradient(135deg,
+      var(--hatch) 0 2px,
+      transparent 2px 4px);
   flex: none;
 }
 
@@ -105,11 +103,9 @@
 }
 
 .swatchRejected {
-  background: repeating-linear-gradient(
-    135deg,
-    var(--hatch) 0 2px,
-    transparent 2px 4px
-  );
+  background: repeating-linear-gradient(135deg,
+      var(--hatch) 0 2px,
+      transparent 2px 4px);
   border: 1px solid var(--color-neutral-300);
 }
 
@@ -180,15 +176,15 @@
 }
 
 .mixHa {
-  background: #5c2422;
+  background: #a3251e;
 }
 
 .mixSii {
-  background: #c4a15a;
+  background: #eba00b;
 }
 
 .mixOiii {
-  background: #4d8f88;
+  background: #0eb3a2;
 }
 
 .mixL {
@@ -196,15 +192,15 @@
 }
 
 .mixR {
-  background: #b05a52;
+  background: #e7867d;
 }
 
 .mixG {
-  background: #5a8a64;
+  background: #86cc94;
 }
 
 .mixB {
-  background: #5980a6;
+  background: #75a5d4;
 }
 
 .mixOther {

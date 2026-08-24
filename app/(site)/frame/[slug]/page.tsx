@@ -5,7 +5,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { AcquisitionPanel, type NightRow } from "@/components/AcquisitionPanel";
 import { FrameImage } from "@/components/FrameImage";
-import { PLATE_FIELDS, publicGearRows } from "@/lib/defaults";
+import { PLATE_FIELDS, publicGearRows, DEFAULT_SITE_SETTINGS } from "@/lib/defaults";
 import {
   buildChannelMix,
   buildFilterBars,
@@ -14,11 +14,13 @@ import {
   formatMonthYear,
   toParagraphs,
 } from "@/lib/format";
+import { shareMetadata, siteOrigin } from "@/lib/share-meta";
 import { getCurrentAdmin } from "@/server/auth/session";
 import {
   getAdjacentFrames,
   getFrameBySlug,
   getGearItems,
+  getSiteSettings,
   pickImage,
 } from "@/server/db/queries";
 
@@ -40,10 +42,18 @@ export async function generateMetadata({
   try {
     const frame = await getFrameBySlug(slug);
     if (!frame) return { title: "Not found" };
-    return {
-      title: `${frame.catalogId}${frame.commonName ? ` — ${frame.commonName}` : ""}`,
+    const title = `${frame.catalogId}${frame.commonName ? ` — ${frame.commonName}` : ""}`;
+    if (!frame.published) return { title, description: frame.blurb };
+    const [origin, settings] = await Promise.all([siteOrigin(), getSiteSettings()]);
+    return shareMetadata({
+      title,
       description: frame.blurb,
-    };
+      images: frame.images,
+      path: `/frame/${frame.slug}`,
+      origin,
+      siteName: (settings ?? DEFAULT_SITE_SETTINGS).siteName,
+      type: "article",
+    });
   } catch (error) {
     console.error(`[astroblog] Metadata failed for frame "${slug}".`, error);
     throw error;

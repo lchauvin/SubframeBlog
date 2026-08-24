@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Barlow, Barlow_Condensed } from "next/font/google";
 
+import { DEFAULT_SITE_SETTINGS } from "@/lib/defaults";
+import { siteOrigin } from "@/lib/share-meta";
+import { getSiteSettings } from "@/server/db/queries";
 import "@/styles/global.css";
 
 // Self-hosted at build time, satisfying the README's "self-host for production"
@@ -19,10 +22,22 @@ const barlowCondensed = Barlow_Condensed({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Subframe",
-  description: "Narrowband astrophotography from a Bortle 9 sky.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const origin = await siteOrigin();
+  const settings = (await getSiteSettings()) ?? DEFAULT_SITE_SETTINGS;
+  return {
+    metadataBase: origin,
+    title: settings.siteName,
+    description: "Narrowband astrophotography from a Bortle 9 sky.",
+    openGraph: {
+      siteName: settings.siteName,
+      locale: "en_CA",
+    },
+    twitter: {
+      card: "summary_large_image",
+    },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

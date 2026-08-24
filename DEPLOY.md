@@ -59,10 +59,15 @@ Add these in hPanel's deployment settings:
 
 ```text
 ASTROBLOG_DATA_DIR=/absolute/private/path/from-file-manager
+ASTROBLOG_SITE_URL=https://your-domain.example
 ASTROMETRY_API_KEY=your_nova_astrometry_key
 ASTROBLOG_ADMIN_USERNAME=admin
 ASTROBLOG_ADMIN_PASSWORD=a-unique-password-of-at-least-12-characters
 ```
+
+`ASTROBLOG_SITE_URL` is the public `https://` origin crawlers should see on
+link previews. If you omit it, Open Graph image URLs are built from the request
+Host header.
 
 The first runtime start creates an empty migrated database and creates the admin
 only if no admin exists. It never replaces an existing account.

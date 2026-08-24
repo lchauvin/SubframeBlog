@@ -148,6 +148,8 @@ Production requires an absolute `ASTROBLOG_DATA_DIR` outside Hostinger's
 replaceable `nodejs/` deployment directory. Runtime startup creates the data
 layout, applies migrations and creates the first admin from temporary
 `ASTROBLOG_ADMIN_USERNAME` / `ASTROBLOG_ADMIN_PASSWORD` environment variables.
+Set `ASTROBLOG_SITE_URL` to the public `https://` origin so Facebook, Discord
+and similar crawlers receive absolute image URLs on link previews.
 
 Equipment on each public frame comes from that frame’s own list, or from
 **Admin → Site → Current rig** until a frame has been saved with its own rows.
