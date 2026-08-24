@@ -6,6 +6,7 @@ import { db } from "./client";
 import {
   annotations,
   frameFilters,
+  frameGear,
   frameImages,
   frames,
   gearItems,
@@ -94,15 +95,17 @@ export type FullFrame = Frame & {
   filters: (typeof frameFilters.$inferSelect)[];
   nights: (typeof nights.$inferSelect)[];
   annotations: (typeof annotations.$inferSelect)[];
+  gear: (typeof frameGear.$inferSelect)[];
 };
 
 async function hydrate(frame: Frame): Promise<FullFrame> {
   let filterRows: (typeof frameFilters.$inferSelect)[];
   let nightRows: (typeof nights.$inferSelect)[];
   let annotationRows: (typeof annotations.$inferSelect)[];
+  let gearRows: (typeof frameGear.$inferSelect)[];
   let images: Map<number, ImageSet>;
   try {
-    [filterRows, nightRows, annotationRows, images] = await Promise.all([
+    [filterRows, nightRows, annotationRows, gearRows, images] = await Promise.all([
       db
         .select()
         .from(frameFilters)
@@ -118,6 +121,11 @@ async function hydrate(frame: Frame): Promise<FullFrame> {
         .from(annotations)
         .where(eq(annotations.frameId, frame.id))
         .orderBy(asc(annotations.position), asc(annotations.id)),
+      db
+        .select()
+        .from(frameGear)
+        .where(eq(frameGear.frameId, frame.id))
+        .orderBy(asc(frameGear.position), asc(frameGear.id)),
       imageSetsFor([frame.id]),
     ]);
   } catch (error) {
@@ -134,6 +142,7 @@ async function hydrate(frame: Frame): Promise<FullFrame> {
     filters: filterRows,
     nights: nightRows,
     annotations: annotationRows,
+    gear: gearRows,
   };
 }
 

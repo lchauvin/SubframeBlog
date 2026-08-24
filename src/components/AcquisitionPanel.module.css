@@ -162,3 +162,59 @@
   font: 400 10px/1.5 var(--font-mono);
   color: var(--color-neutral-600);
 }
+
+.mix {
+  margin-bottom: 16px;
+}
+
+.mixTrack {
+  display: flex;
+  height: 16px;
+  background: var(--color-neutral-200);
+  overflow: hidden;
+}
+
+.mixSeg {
+  flex: none;
+  height: 100%;
+}
+
+.mixHa {
+  background: #5c2422;
+}
+
+.mixSii {
+  background: #c4a15a;
+}
+
+.mixOiii {
+  background: #4d8f88;
+}
+
+.mixL {
+  background: #7a7a7d;
+}
+
+.mixR {
+  background: #b05a52;
+}
+
+.mixG {
+  background: #5a8a64;
+}
+
+.mixB {
+  background: #5980a6;
+}
+
+.mixOther {
+  background: var(--color-neutral-500);
+}
+
+.mixLegend {
+  margin-top: 8px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}

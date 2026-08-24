@@ -39,6 +39,53 @@ export const DEFAULT_GEAR: { keyLabel: string; value: string }[] = [
   { keyLabel: "Site", value: "Montréal, QC · Bortle 9 · 45.5° N" },
 ];
 
+export type GearPair = { keyLabel: string; value: string };
+
+/** Rows that actually have both a key and a value — used on public pages. */
+export function completeGearRows(rows: GearPair[] | undefined): GearPair[] {
+  return (rows ?? [])
+    .map(({ keyLabel, value }) => ({ keyLabel: keyLabel.trim(), value: value.trim() }))
+    .filter((row) => row.keyLabel.length > 0 && row.value.length > 0);
+}
+
+/** Keep rows that have at least one field, including blanks the public page will hide. */
+export function authoredGearRows(rows: GearPair[] | undefined): GearPair[] {
+  return (rows ?? [])
+    .map(({ keyLabel, value }) => ({ keyLabel: keyLabel.trim(), value: value.trim() }))
+    .filter((row) => row.keyLabel.length > 0 || row.value.length > 0);
+}
+
+/**
+ * Admin editor contents: the first list that already has rows (complete or not),
+ * otherwise the built-in default rig.
+ */
+export function editorGearRows(...candidates: Array<GearPair[] | undefined>): GearPair[] {
+  for (const list of candidates) {
+    if (list && list.length > 0) {
+      return list.map(({ keyLabel, value }) => ({ keyLabel, value }));
+    }
+  }
+  return DEFAULT_GEAR.map((row) => ({ ...row }));
+}
+
+/** Public frame equipment: this frame's list if it has one, otherwise the current rig. */
+export function publicGearRows(
+  frameGear: GearPair[] | undefined,
+  siteGear: GearPair[] | undefined,
+): GearPair[] {
+  if (frameGear && frameGear.length > 0) return completeGearRows(frameGear);
+  return pickGearRows(siteGear);
+}
+
+/** First complete list wins; otherwise the real default rig. Used for new-frame defaults. */
+export function pickGearRows(...candidates: Array<GearPair[] | undefined>): GearPair[] {
+  for (const list of candidates) {
+    const rows = completeGearRows(list);
+    if (rows.length > 0) return rows;
+  }
+  return DEFAULT_GEAR.map((row) => ({ ...row }));
+}
+
 /** Placeholder figures — hand-edited in /admin/site, not derived. */
 export const DEFAULT_STATS: { value: string; label: string }[] = [
   { value: "41", label: "Published frames" },

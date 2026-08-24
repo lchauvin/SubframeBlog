@@ -1,4 +1,4 @@
-import { DEFAULT_SITE_SETTINGS } from "@/lib/defaults";
+import { DEFAULT_SITE_SETTINGS, pickGearRows } from "@/lib/defaults";
 import { getGearItems, getSiteSettings, getSiteStats, listAllFrames } from "@/server/db/queries";
 
 import { SiteForm, type SiteFormValues } from "./SiteForm";
@@ -44,7 +44,7 @@ export default async function AdminSitePage() {
 
       <SiteForm
         values={values}
-        gear={gear.map((g) => ({ keyLabel: g.keyLabel, value: g.value }))}
+        gear={pickGearRows(gear)}
         stats={stats.map((s) => ({ value: s.value, label: s.label }))}
         frameOptions={frames.map((f) => ({
           slug: f.slug,

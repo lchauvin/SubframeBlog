@@ -6,6 +6,7 @@ export type FrameDraft = {
   filters: Array<Record<string, string | number>>;
   nights: Array<Record<string, string | number>>;
   annotations: Array<Record<string, string | number>>;
+  gear: Array<Record<string, string | number>>;
 };
 
 function asRecords(raw: FormDataEntryValue | null): Record<string, unknown>[] {
@@ -83,6 +84,15 @@ export function frameDraftFromFormData(formData: FormData): FrameDraft {
     return next;
   });
 
+  const gear = asRecords(formData.get("gearJson")).map((row) => {
+    const next: Record<string, string | number> = {};
+    for (const key of ["keyLabel", "value"] as const) {
+      const value = pickScalar(row, key);
+      if (value !== undefined) next[key] = value;
+    }
+    return next;
+  });
+
   return {
     schemaVersion: FRAME_DRAFT_SCHEMA_VERSION,
     frame: {
@@ -116,6 +126,7 @@ export function frameDraftFromFormData(formData: FormData): FrameDraft {
     filters,
     nights,
     annotations,
+    gear,
   };
 }
 

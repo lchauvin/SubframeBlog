@@ -1,12 +1,15 @@
 import type { FrameFormValues } from "../FrameForm";
 import { FrameDraftImporter } from "../FrameDraftImporter";
+import { pickGearRows } from "@/lib/defaults";
+import { getGearItems } from "@/server/db/queries";
 import styles from "../../../admin.module.css";
 
 export const dynamic = "force-dynamic";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function NewFramePage() {
+export default async function NewFramePage() {
+  const siteGear = await getGearItems();
   const values: FrameFormValues = {
     id: null,
     slug: "",
@@ -43,7 +46,7 @@ export default function NewFramePage() {
       <h1 className={styles.pageTitle}>New frame</h1>
       <p className={styles.pageSub}>Save first, then upload the master</p>
 
-      <FrameDraftImporter defaults={values} />
+      <FrameDraftImporter defaults={values} gear={pickGearRows(siteGear)} />
     </>
   );
 }

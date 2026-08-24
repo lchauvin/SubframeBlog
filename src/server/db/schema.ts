@@ -114,6 +114,24 @@ export const frameFilters = sqliteTable(
   (t) => [index("frame_filters_frame_idx").on(t.frameId)],
 );
 
+/**
+ * Equipment used for this frame. Independent of the site-level "current rig"
+ * list, which is the About page default and the starting point for new frames.
+ */
+export const frameGear = sqliteTable(
+  "frame_gear",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    frameId: integer("frame_id")
+      .notNull()
+      .references(() => frames.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    keyLabel: text("key_label").notNull(),
+    value: text("value").notNull(),
+  },
+  (t) => [index("frame_gear_frame_idx").on(t.frameId)],
+);
+
 /** Optional per-night detail. Display only; no totals are derived from it. */
 export const nights = sqliteTable(
   "nights",
@@ -209,7 +227,7 @@ export const plateSolves = sqliteTable(
   (t) => [uniqueIndex("plate_solves_frame_idx").on(t.frameId)],
 );
 
-/** Site-level gear list; renders in both the article sidebar and /about. */
+/** Site-level current rig; renders on /about and as a fallback on frames. */
 export const gearItems = sqliteTable("gear_items", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   position: integer("position").notNull().default(0),

@@ -2,8 +2,19 @@
 
 import { useState } from "react";
 
-import type { FilterBar } from "@/lib/format";
+import type { ChannelMixSegment, FilterBar } from "@/lib/format";
 import styles from "./AcquisitionPanel.module.css";
+
+const MIX_SWATCH: Record<ChannelMixSegment["key"], string> = {
+  Ha: styles.mixHa,
+  SII: styles.mixSii,
+  OIII: styles.mixOiii,
+  L: styles.mixL,
+  R: styles.mixR,
+  G: styles.mixG,
+  B: styles.mixB,
+  Other: styles.mixOther,
+};
 
 export type NightRow = {
   id: number;
@@ -17,9 +28,11 @@ export type NightRow = {
 
 export function AcquisitionPanel({
   bars,
+  mix,
   nights,
 }: {
   bars: FilterBar[];
+  mix: ChannelMixSegment[];
   nights: NightRow[];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -49,6 +62,34 @@ export function AcquisitionPanel({
         <p className={styles.emptyBars}>No filter data recorded.</p>
       ) : (
         <>
+          {mix.length > 0 ? (
+            <div className={styles.mix}>
+              <div
+                className={styles.mixTrack}
+                role="img"
+                aria-label={mix
+                  .map((segment) => `${segment.label} ${segment.percentLabel}`)
+                  .join(", ")}
+              >
+                {mix.map((segment) => (
+                  <span
+                    key={segment.key}
+                    className={`${styles.mixSeg} ${MIX_SWATCH[segment.key]}`}
+                    style={{ width: segment.width }}
+                    title={`${segment.label} ${segment.percentLabel} · ${segment.hoursLabel}`}
+                  />
+                ))}
+              </div>
+              <div className={styles.mixLegend}>
+                {mix.map((segment) => (
+                  <span className={styles.legendItem} key={segment.key}>
+                    <span className={`${styles.swatch} ${MIX_SWATCH[segment.key]}`} />
+                    {segment.label} {segment.percentLabel} · {segment.hoursLabel}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {bars.map((bar) => (
             <div className={styles.barRow} key={bar.name}>
               <div className={styles.filterName}>{bar.name}</div>

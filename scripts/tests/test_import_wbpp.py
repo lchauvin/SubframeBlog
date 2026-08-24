@@ -93,6 +93,8 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(
             draft["diagnostics"]["keptIntegration"], {"hours": 0, "minutes": 25}
         )
+        self.assertEqual(draft["gear"][0]["keyLabel"], "Optics")
+        self.assertEqual(len(draft["gear"]), 7)
 
     def test_partial_log_warns_without_crashing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

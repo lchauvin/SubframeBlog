@@ -197,6 +197,10 @@ export function SiteForm({
             { key: "value", label: "Value", width: "2.4fr" },
           ]}
         />
+        <p className={styles.hint} style={{ marginTop: 10 }}>
+          Shown on the About page. New and existing frames use this list until you save
+          per-frame equipment.
+        </p>
       </section>
 
       <section className={styles.section}>

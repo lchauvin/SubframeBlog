@@ -149,6 +149,10 @@ replaceable `nodejs/` deployment directory. Runtime startup creates the data
 layout, applies migrations and creates the first admin from temporary
 `ASTROBLOG_ADMIN_USERNAME` / `ASTROBLOG_ADMIN_PASSWORD` environment variables.
 
+Equipment on each public frame comes from that frame’s own list, or from
+**Admin → Site → Current rig** until a frame has been saved with its own rows.
+A blank key or value is kept in admin and hidden on the public article.
+
 The static export remains available as a separate fallback for hosting without
 Node:
 

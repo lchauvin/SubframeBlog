@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { authoredGearRows } from "@/lib/defaults";
 import { slugify, frameSlug } from "@/lib/format";
 import { requireAdmin } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import {
   annotations,
   frameFilters,
+  frameGear,
   frameImages,
   frames,
   gearItems,
@@ -48,6 +50,8 @@ const annotationSchema = z.object({
   yPct: z.coerce.number().min(0).max(100),
   radiusPx: z.coerce.number().min(1).max(3200),
 });
+
+const frameGearSchema = z.object({ keyLabel: text(40), value: text(300) });
 
 const frameSchema = z.object({
   catalogId: text(120).min(1, "Catalog ID is required"),
@@ -92,12 +96,14 @@ export async function saveFrame(_prev: FormState, formData: FormData): Promise<F
   let filterRows: z.infer<typeof filterSchema>[];
   let nightRows: z.infer<typeof nightSchema>[];
   let annotationRows: z.infer<typeof annotationSchema>[];
+  let gearRows: z.infer<typeof frameGearSchema>[];
 
   try {
     data = frameSchema.parse(Object.fromEntries(formData));
     filterRows = parseRows(formData.get("filtersJson"), filterSchema);
     nightRows = parseRows(formData.get("nightsJson"), nightSchema);
     annotationRows = parseRows(formData.get("annotationsJson"), annotationSchema);
+    gearRows = authoredGearRows(parseRows(formData.get("gearJson"), frameGearSchema));
   } catch (err) {
     if (err instanceof z.ZodError) {
       const first = err.errors[0];
@@ -202,11 +208,19 @@ export async function saveFrame(_prev: FormState, formData: FormData): Promise<F
       .values(annotationRows.map((a, i) => ({ ...a, frameId, position: i })));
   }
 
+  await db.delete(frameGear).where(eq(frameGear.frameId, frameId));
+  if (gearRows.length > 0) {
+    await db
+      .insert(frameGear)
+      .values(gearRows.map((g, i) => ({ ...g, frameId, position: i })));
+  }
+
   revalidatePath("/");
   revalidatePath("/about");
   revalidatePath(`/frame/${slug}`);
   revalidatePath(`/frame/${slug}/full`);
   revalidatePath("/admin");
+  revalidatePath(`/admin/frames/${frameId}`);
 
   if (created) redirect(`/admin/frames/${frameId}?created=1`);
   return { success: "Saved." };

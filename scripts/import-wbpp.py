@@ -66,6 +66,15 @@ PREFERRED_OLLAMA_MODELS = (
 DEFAULT_OPTICS_LABEL = "RedCat 51 WIFD"
 DEFAULT_SENSOR_LABEL = "QHY Minicam8M (IMX585)"
 DEFAULT_SKY_LABEL = "Bortle 9"
+DEFAULT_GEAR = [
+    {"keyLabel": "Optics", "value": "William Optics RedCat 51 · 250mm f/4.9"},
+    {"keyLabel": "Camera", "value": "QHY MiniCam8M · IMX585 · 2.9µm"},
+    {"keyLabel": "Filters", "value": "XiMei 3nm Hα / OIII / SII + XiMei L-Pro"},
+    {"keyLabel": "Mount", "value": "ZWO AM3 harmonic, no counterweight"},
+    {"keyLabel": "Guiding", "value": "Uniguide 32mm + ZWO ASI120MM Mini"},
+    {"keyLabel": "Control", "value": "Mele Quieter 4C · NINA + PHD2"},
+    {"keyLabel": "Site", "value": "Montréal, QC · Bortle 9 · 45.5° N"},
+]
 FOCAL_LENGTH_MM = 250.0
 PIXEL_SIZE_UM = 2.9
 ARCSEC_PER_RADIAN_UM_MM = 206.265
@@ -1784,6 +1793,7 @@ def build_draft(
         "filters": filters,
         "nights": nights,
         "annotations": [],
+        "gear": [dict(row) for row in DEFAULT_GEAR],
         "diagnostics": {
             "warnings": warning_list,
             "targetHint": target_hint,

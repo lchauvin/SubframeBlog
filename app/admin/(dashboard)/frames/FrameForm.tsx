@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 
@@ -129,20 +129,33 @@ export function FrameForm({
   filters,
   nights,
   annotations,
+  gear,
   imageVariants,
   previewSrc,
   initialMessage,
+  onSaved,
 }: {
   values: FrameFormValues;
   filters: RowValue[];
   nights: RowValue[];
   annotations: RowValue[];
+  gear: RowValue[];
   imageVariants: VariantSummary[];
   previewSrc: string | null;
   initialMessage?: string;
+  onSaved?: (formData: FormData) => void;
 }) {
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
+
+  const save = async (prev: FormState, formData: FormData) => {
+    const result = await saveFrame(prev, formData);
+    if (result.success) onSavedRef.current?.(formData);
+    return result;
+  };
+
   const [state, formAction] = useActionState<FormState, FormData>(
-    saveFrame,
+    save,
     initialMessage ? { success: initialMessage } : {},
   );
 
@@ -395,6 +408,25 @@ export function FrameForm({
             />
           </div>
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Equipment</h2>
+        <RowEditor
+          name="gearJson"
+          initialRows={gear}
+          addLabel="Add gear row"
+          emptyLabel="No equipment rows. The public page will use the Current rig until you save some."
+          blankRow={{ keyLabel: "", value: "" }}
+          columns={[
+            { key: "keyLabel", label: "Key", width: "0.6fr", placeholder: "Optics" },
+            { key: "value", label: "Value", width: "2.4fr" },
+          ]}
+        />
+        <p className={styles.hint} style={{ marginTop: 10 }}>
+          Starts from the Current rig. Edit any row for this frame. A blank key or value stays
+          in this form but is hidden on the public page.
+        </p>
       </section>
 
       <section className={styles.section}>

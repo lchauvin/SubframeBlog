@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 
 import type { RowValue } from "@/components/admin/RowEditor";
 import type { VariantSummary } from "@/components/admin/ImageUploader";
@@ -109,11 +110,68 @@ function importFilterRows(raw: unknown): RowValue[] {
   });
 }
 
+function parseRowJson(formData: FormData, key: string): RowValue[] {
+  try {
+    const parsed: unknown = JSON.parse(String(formData.get(key) ?? "[]"));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((row): row is RowValue => {
+      return typeof row === "object" && row !== null && !Array.isArray(row);
+    });
+  } catch {
+    return [];
+  }
+}
+
+function snapshotFromFormData(formData: FormData, defaults: FrameFormValues) {
+  const str = (key: string) => String(formData.get(key) ?? "");
+  const int = (key: string) => {
+    const value = Number(formData.get(key));
+    return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  };
+
+  return {
+    values: {
+      ...defaults,
+      slug: str("slug"),
+      catalogId: str("catalogId"),
+      commonName: str("commonName"),
+      frameNumber: str("frameNumber"),
+      revision: str("revision"),
+      capturedOn: str("capturedOn"),
+      palette: str("palette"),
+      bandwidth: str("bandwidth"),
+      integrationHours: int("integrationHours"),
+      integrationMinutes: int("integrationMinutes"),
+      metaLine: str("metaLine"),
+      blurb: str("blurb"),
+      bodyMarkdown: str("bodyMarkdown"),
+      note: str("note"),
+      plateCatalog: str("plateCatalog"),
+      plateClass: str("plateClass"),
+      plateConstellation: str("plateConstellation"),
+      plateDistance: str("plateDistance"),
+      plateCoordinates: str("plateCoordinates"),
+      platePalette: str("platePalette"),
+      plateSessions: str("plateSessions"),
+      plateSky: str("plateSky"),
+      opticsLabel: str("opticsLabel"),
+      sensorLabel: str("sensorLabel"),
+      arcsecPerPx: str("arcsecPerPx"),
+      published: formData.get("published") === "on",
+    } satisfies FrameFormValues,
+    filters: parseRowJson(formData, "filtersJson"),
+    nights: parseRowJson(formData, "nightsJson"),
+    annotations: parseRowJson(formData, "annotationsJson"),
+    gear: parseRowJson(formData, "gearJson"),
+  };
+}
+
 export function FrameDraftImporter({
   defaults,
   filters: initialFilters = [],
   nights: initialNights = [],
   annotations: initialAnnotations = [],
+  gear: initialGear = [],
   imageVariants = [],
   previewSrc = null,
   initialMessage,
@@ -122,15 +180,19 @@ export function FrameDraftImporter({
   filters?: RowValue[];
   nights?: RowValue[];
   annotations?: RowValue[];
+  gear?: RowValue[];
   imageVariants?: VariantSummary[];
   previewSrc?: string | null;
   initialMessage?: string;
 }) {
+  const router = useRouter();
   const [values, setValues] = useState(defaults);
   const [filters, setFilters] = useState<RowValue[]>(initialFilters);
   const [nights, setNights] = useState<RowValue[]>(initialNights);
   const [annotations, setAnnotations] = useState<RowValue[]>(initialAnnotations);
+  const [gear, setGear] = useState<RowValue[]>(initialGear);
   const [formVersion, setFormVersion] = useState(0);
+  const [savedNotice, setSavedNotice] = useState<string | undefined>();
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(
     null,
   );
@@ -150,6 +212,7 @@ export function FrameDraftImporter({
       const nextFilters = importFilterRows(parsed.filters);
       const nextNights = importRows(parsed.nights, "nights");
       const nextAnnotations = importRows(parsed.annotations ?? [], "annotations");
+      const nextGear = Array.isArray(parsed.gear) ? importRows(parsed.gear, "gear") : null;
 
       setValues(nextValues);
       setFilters(nextFilters);
@@ -157,7 +220,9 @@ export function FrameDraftImporter({
       setAnnotations(
         nextAnnotations.length > 0 || defaults.id === null ? nextAnnotations : annotations,
       );
+      if (nextGear !== null) setGear(nextGear);
       setFormVersion((version) => version + 1);
+      setSavedNotice(undefined);
       setMessage({
         kind: "success",
         text: `Imported ${file.name}. Review every field before saving.`,
@@ -207,9 +272,22 @@ export function FrameDraftImporter({
         filters={filters}
         nights={nights}
         annotations={annotations}
+        gear={gear}
         imageVariants={imageVariants}
         previewSrc={previewSrc}
-        initialMessage={initialMessage}
+        initialMessage={savedNotice ?? initialMessage}
+        onSaved={(formData) => {
+          const snapshot = snapshotFromFormData(formData, defaults);
+          setValues(snapshot.values);
+          setFilters(snapshot.filters);
+          setNights(snapshot.nights);
+          setAnnotations(snapshot.annotations);
+          setGear(snapshot.gear);
+          setSavedNotice("Saved.");
+          setMessage(null);
+          setFormVersion((version) => version + 1);
+          router.refresh();
+        }}
       />
     </>
   );

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { getFrameById, getFrameImageRows, pickImage } from "@/server/db/queries";
+import { editorGearRows } from "@/lib/defaults";
+import { getFrameById, getFrameImageRows, getGearItems, pickImage } from "@/server/db/queries";
 
 import { FrameDraftImporter } from "../FrameDraftImporter";
 import type { FrameFormValues } from "../FrameForm";
@@ -23,7 +24,10 @@ export default async function EditFramePage({
   if (!frame) notFound();
 
   const { created } = await searchParams;
-  const imageRows = await getFrameImageRows(frame.id);
+  const [imageRows, siteGear] = await Promise.all([
+    getFrameImageRows(frame.id),
+    getGearItems(),
+  ]);
   const preview = pickImage(frame.images, "thumb");
 
   const values: FrameFormValues = {
@@ -87,6 +91,7 @@ export default async function EditFramePage({
           yPct: a.yPct,
           radiusPx: a.radiusPx,
         }))}
+        gear={editorGearRows(frame.gear, siteGear)}
         imageVariants={imageRows.map((r) => ({
           variant: r.variant,
           format: r.format,

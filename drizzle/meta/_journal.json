@@ -36,6 +36,13 @@
       "when": 1787198802874,
       "tag": "0004_safe_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787523061014,
+      "tag": "0005_crazy_calypso",
+      "breakpoints": true
     }
   ]
 }

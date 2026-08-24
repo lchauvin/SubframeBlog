@@ -5,8 +5,9 @@ import { ChevronLeft } from "lucide-react";
 
 import { AcquisitionPanel, type NightRow } from "@/components/AcquisitionPanel";
 import { FrameImage } from "@/components/FrameImage";
-import { PLATE_FIELDS } from "@/lib/defaults";
+import { PLATE_FIELDS, publicGearRows } from "@/lib/defaults";
 import {
+  buildChannelMix,
   buildFilterBars,
   formatDayMonth,
   formatMinutes,
@@ -66,9 +67,11 @@ async function renderArticlePage({
     if (!(await getCurrentAdmin())) notFound();
   }
 
-  const [adjacent, gear] = await Promise.all([getAdjacentFrames(frame.id), getGearItems()]);
+  const [adjacent, siteGear] = await Promise.all([getAdjacentFrames(frame.id), getGearItems()]);
+  const gear = publicGearRows(frame.gear, siteGear);
 
   const bars = buildFilterBars(frame.filters);
+  const mix = buildChannelMix(frame.filters);
   const nightRows: NightRow[] = frame.nights.map((n) => ({
     id: n.id,
     date: formatDayMonth(n.nightDate),
@@ -175,13 +178,13 @@ async function renderArticlePage({
         </div>
 
         <div className={styles.data}>
-          <AcquisitionPanel bars={bars} nights={nightRows} />
+          <AcquisitionPanel bars={bars} mix={mix} nights={nightRows} />
 
           {gear.length > 0 ? (
             <>
               <div className={styles.equipmentLabel}>Equipment</div>
-              {gear.map((g) => (
-                <div className={styles.equipmentRow} key={g.id}>
+              {gear.map((g, i) => (
+                <div className={styles.equipmentRow} key={`${g.keyLabel}-${i}`}>
                   <div className={styles.equipmentKey}>{g.keyLabel}</div>
                   <div className={styles.equipmentValue}>{g.value}</div>
                 </div>

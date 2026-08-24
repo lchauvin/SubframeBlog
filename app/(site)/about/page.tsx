@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { DEFAULT_SITE_SETTINGS } from "@/lib/defaults";
+import { DEFAULT_SITE_SETTINGS, pickGearRows } from "@/lib/defaults";
 import { toParagraphs } from "@/lib/format";
 import {
   getFrameBySlug,
@@ -24,6 +24,7 @@ export default async function AboutPage() {
     getGearItems(),
   ]);
   const settings = settingsRow ?? DEFAULT_SITE_SETTINGS;
+  const rig = pickGearRows(gear);
 
   // The hero is a chosen frame rather than the prototype's hardcoded file, so
   // its caption cannot drift away from the frame it shows.
@@ -57,12 +58,12 @@ export default async function AboutPage() {
           </div>
         ) : null}
 
-        {gear.length > 0 ? (
+        {rig.length > 0 ? (
           <>
             <div className={styles.rigLabel}>{settings.aboutRigLabel}</div>
             <div className={styles.rigList}>
-              {gear.map((g) => (
-                <div className={styles.rigRow} key={g.id}>
+              {rig.map((g, i) => (
+                <div className={styles.rigRow} key={`${g.keyLabel}-${i}`}>
                   <div className={styles.rigKey}>{g.keyLabel}</div>
                   <div className={styles.rigValue}>{g.value}</div>
                 </div>

@@ -12,6 +12,7 @@ import { db } from "../src/server/db/client";
 import {
   annotations,
   frameFilters,
+  frameGear,
   frameImages,
   frames,
   gearItems,
@@ -30,6 +31,7 @@ async function main() {
   await db.delete(annotations);
   await db.delete(nights);
   await db.delete(frameFilters);
+  await db.delete(frameGear);
   await db.delete(frameImages);
   await db.delete(frames);
   await db.delete(gearItems);
@@ -90,6 +92,10 @@ async function main() {
     await db
       .insert(annotations)
       .values(seed.annotations.map((a, i) => ({ ...a, frameId, position: i })));
+
+    await db
+      .insert(frameGear)
+      .values(DEFAULT_GEAR.map((g, i) => ({ ...g, frameId, position: i })));
 
     const source = path.join(IMAGE_DIR, seed.sourceImage);
     if (!fs.existsSync(source)) {
