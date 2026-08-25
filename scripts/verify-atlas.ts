@@ -30,6 +30,12 @@ function footprintCentre(panel: AtlasPanel, slug: string): { x: number; y: numbe
   };
 }
 
+/** Rough sky area from the panel's own "45.2° × 31.4°" span label. */
+function panelAreaSqDeg(panel: AtlasPanel): number {
+  const m = /([\d.]+)°\s*×\s*([\d.]+)°/.exec(panel.spanLabel);
+  return m ? Number(m[1]) * Number(m[2]) : 1;
+}
+
 function panelWith(panels: AtlasPanel[], slug: string): AtlasPanel | undefined {
   return panels.find(
     (p) =>
@@ -47,6 +53,8 @@ async function main() {
       `  ${panel.title.padEnd(18)} ${String(panel.frameCount).padStart(2)} frames · ` +
         `${panel.footprints.length} footprints · ${panel.pins.length} pins · ` +
         `${panel.context.length} context · ${panel.graticule.ra.length}+${panel.graticule.dec.length} grid · ` +
+        `${String(panel.stars.length).padStart(3)} stars to mag ${panel.starMagnitudeLimit} ` +
+        `(${panel.stars.filter((s) => s.label).length} named) · ` +
         `${panel.width}x${Math.round(panel.height)} · ${panel.spanLabel} @ ${panel.centreLabel}`,
     );
   }
@@ -156,6 +164,24 @@ async function main() {
       outside.length ? `outside: ${outside.map((d) => d.label).join(", ")}` : "",
     );
     check(`${panel.title}: graticule drawn`, panel.graticule.ra.length + panel.graticule.dec.length > 0);
+
+    // A ceiling only. Too many stars buries the footprints, but too few is
+    // usually the sky's fault rather than the code's — Ursa Major really does
+    // hold three naked-eye stars in the strip M 101 sits in.
+    const perMegapixel =
+      panel.stars.length / ((panel.width * panel.height) / 1_000_000);
+    check(
+      `${panel.title}: stars do not swamp the footprints`,
+      perMegapixel < 600,
+      `${panel.stars.length} stars = ${Math.round(perMegapixel)} per megapixel ` +
+        `(${Math.round((panel.stars.length / Math.max(1, panelAreaSqDeg(panel))) * 1000)} per 1000 sq°)`,
+    );
+    check(
+      `${panel.title}: every star sits inside the viewBox`,
+      panel.stars.every(
+        (s) => s.x >= -s.r && s.x <= panel.width + s.r && s.y >= -s.r && s.y <= panel.height + s.r,
+      ),
+    );
   }
 
   console.log(

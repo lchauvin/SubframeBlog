@@ -5,6 +5,7 @@ import { formatMinutes, formatMonthYear } from "@/lib/format";
 import { loadCatalog, catalogAvailable } from "../astrometry/catalog";
 import { angularSeparation, pixelToSky, type Wcs } from "../astrometry/wcs";
 import { listAtlasFrames, pickImage, type AtlasFrameRow, type VariantImages } from "../db/queries";
+import { magnitudeLimitFor, starRadius, starsWithin } from "./stars";
 import { parseRaDec } from "@/lib/coordinates";
 import {
   centroidOf,
@@ -83,6 +84,14 @@ export type AtlasContextObject = {
   label: string;
 };
 
+export type AtlasStar = {
+  key: string;
+  x: number;
+  y: number;
+  r: number;
+  label?: string;
+};
+
 export type AtlasGridLine = {
   key: string;
   points: string;
@@ -105,6 +114,8 @@ export type AtlasPanel = {
   footprints: AtlasFootprint[];
   pins: AtlasPin[];
   context: AtlasContextObject[];
+  stars: AtlasStar[];
+  starMagnitudeLimit: number;
 };
 
 export type AtlasData = {
@@ -540,6 +551,27 @@ function buildPanel(cluster: Placement[], index: number): AtlasPanel {
     }
   }
 
+  /* Star backdrop */
+
+  const starMagnitudeLimit = magnitudeLimitFor(widthDeg);
+  const stars: AtlasStar[] = [];
+  let starIndex = 0;
+
+  for (const star of starsWithin(centre, panelRadiusDeg + 1, starMagnitudeLimit)) {
+    const p = project(wcs, star.ra, star.dec);
+    if (!p) continue;
+    const r = starRadius(star.vmag);
+    // Keep a star whose disc overlaps the edge; drop the rest.
+    if (!inside(p, r)) continue;
+
+    starIndex += 1;
+    stars.push(
+      star.label
+        ? { key: `s${starIndex}`, x: p.x, y: p.y, r, label: star.label }
+        : { key: `s${starIndex}`, x: p.x, y: p.y, r },
+    );
+  }
+
   /* Scale bar */
 
   const scaleDeg = niceScaleDegrees(widthDeg * 0.2);
@@ -562,6 +594,8 @@ function buildPanel(cluster: Placement[], index: number): AtlasPanel {
     footprints,
     pins,
     context,
+    stars,
+    starMagnitudeLimit,
   };
 }
 

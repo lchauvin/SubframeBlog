@@ -50,6 +50,19 @@
 
 /* ------------------------------------------------------------- the backdrop */
 
+/* Dark dots on a light ground, sized by magnitude — the way a printed star
+   atlas does it, which is also what the design system's ink-on-paper language
+   wants. Brightness is carried entirely by size, so no fill ramp is needed. */
+.stars circle {
+  fill: var(--color-neutral-700);
+}
+
+.starLabels text {
+  font: 400 8.5px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  fill: var(--color-neutral-600);
+}
+
 .grid polyline {
   fill: none;
   stroke: var(--color-neutral-300);

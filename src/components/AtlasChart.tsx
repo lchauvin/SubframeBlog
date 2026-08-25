@@ -106,9 +106,27 @@ export function AtlasChart({ panels }: { panels: AtlasPanel[] }) {
                   </clipPath>
                 </defs>
 
-                {/* Graticule and catalogue context are backdrop: drawn first,
-                    clipped to the panel, and never interactive. */}
+                {/* Stars, graticule and catalogue context are backdrop: drawn
+                    first, clipped to the panel, and never interactive. */}
                 <g clipPath={`url(#${panel.id}-clip)`} aria-hidden="true">
+                  {/* Deepest layer, so the coordinate grid reads as an overlay
+                      on the sky rather than the other way round. */}
+                  <g className={styles.stars}>
+                    {panel.stars.map((star) => (
+                      <circle cx={star.x} cy={star.y} r={star.r} key={star.key} />
+                    ))}
+                  </g>
+
+                  <g className={styles.starLabels}>
+                    {panel.stars
+                      .filter((star) => star.label)
+                      .map((star) => (
+                        <text x={star.x + star.r + 4} y={star.y + 3} key={`${star.key}-label`}>
+                          {star.label}
+                        </text>
+                      ))}
+                  </g>
+
                   <g className={styles.grid}>
                     {[...panel.graticule.ra, ...panel.graticule.dec].map((line) => (
                       <polyline points={line.points} key={line.key} />

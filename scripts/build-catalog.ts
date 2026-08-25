@@ -1,16 +1,18 @@
 /**
- * Builds the bundled deep-sky catalogue used to annotate solved frames.
+ * Builds the bundled catalogues: deep-sky objects used to annotate solved
+ * frames, and bright stars used as the sky atlas backdrop.
  *
  *   npm run build:catalog
  *
- * Writes catalog/deep-sky.json — committed to the repo, read from disk at
- * annotation time (not imported, so it never enters a bundle).
+ * Writes catalog/deep-sky.json and catalog/stars.json — committed to the repo,
+ * read from disk at render time (not imported, so neither enters a bundle).
  *
  * Sources, all freely redistributable with acknowledgement:
  *   OpenNGC   NGC + IC + Messier   CC-BY-SA-4.0   github.com/mattiaverga/OpenNGC
  *   VII/20    Sharpless (Sh2)      Sharpless 1959, via VizieR (CDS)
  *   VII/9     Lynds Bright Nebulae Lynds 1965,     via VizieR (CDS)
  *   VII/7A    Lynds Dark Nebulae   Lynds 1962,     via VizieR (CDS)
+ *   V/50      Yale Bright Star Cat Hoffleit 1991,  via VizieR (CDS)
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -18,6 +20,15 @@ import path from "node:path";
 type Entry = [name: string, ra: number, dec: number, diamArcmin: number, type: string];
 
 const OUT = path.join(process.cwd(), "catalog", "deep-sky.json");
+const STARS_OUT = path.join(process.cwd(), "catalog", "stars.json");
+
+/**
+ * Naked-eye limit. Panels pick a stricter cut from their own span, so this only
+ * has to be deep enough for the tightest panel the atlas will ever draw.
+ */
+const STAR_MAG_LIMIT = 6.5;
+/** Below this, a star is a recognisable landmark worth naming. */
+const STAR_LABEL_MAG = 2.5;
 
 /** OpenNGC types that are not sky objects worth marking. */
 const SKIP_TYPES = new Set(["Dup", "NonEx", "Star", "**", "*"]);
@@ -112,6 +123,66 @@ async function vizier(
   return out;
 }
 
+const GREEK: Record<string, string> = {
+  alp: "α", bet: "β", gam: "γ", del: "δ", eps: "ε", zet: "ζ",
+  eta: "η", the: "θ", iot: "ι", kap: "κ", lam: "λ", mu: "μ",
+  nu: "ν", xi: "ξ", omi: "ο", pi: "π", rho: "ρ", sig: "σ",
+  tau: "τ", ups: "υ", phi: "φ", chi: "χ", psi: "ψ", ome: "ω",
+};
+const SUPERSCRIPT = ["", "¹", "²", "³"];
+
+/**
+ * "21Alp And" -> "α And", "57Gam1And" -> "γ¹ And".
+ *
+ * The Bayer designation is preferred over a proper name: it is what the BSC
+ * actually carries, and Greek-plus-abbreviation suits a technical chart better
+ * than "Deneb" would. Stars with only a Flamsteed number get no label.
+ */
+function bayerLabel(raw: string): string | null {
+  const m = /^\s*\d*\s*([A-Za-z]{2,3})(\d?)\s*([A-Za-z]{3})\s*$/.exec(raw ?? "");
+  if (!m) return null;
+  const greek = GREEK[m[1].toLowerCase()];
+  if (!greek) return null;
+  const index = m[2] ? SUPERSCRIPT[Number(m[2])] ?? "" : "";
+  return `${greek}${index} ${m[3][0].toUpperCase()}${m[3].slice(1).toLowerCase()}`;
+}
+
+type Star = [ra: number, dec: number, vmag: number, label?: string];
+
+/**
+ * Bright stars for the sky atlas backdrop. Positions only — this catalogue is
+ * never used to identify anything, just to make a region recognisable.
+ */
+async function stars(): Promise<Star[]> {
+  const tsv = await get(
+    "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=V/50&-out.max=unlimited" +
+      `&-out=_RAJ2000,_DEJ2000,Vmag,Name&Vmag=%3C${STAR_MAG_LIMIT}`,
+    "Yale Bright Star Catalogue",
+  );
+
+  const out: Star[] = [];
+  for (const line of tsv.split(/\r?\n/)) {
+    if (!line || line.startsWith("#")) continue;
+    const f = line.split("\t").map((s) => s.trim());
+    if (!/^\d/.test(f[0] ?? "")) continue;
+
+    const [ra, dec, vmag] = [Number(f[0]), Number(f[1]), Number(f[2])];
+    if (!Number.isFinite(ra) || !Number.isFinite(dec) || !Number.isFinite(vmag)) continue;
+
+    // Three decimals is ~4 arcsec: far finer than a star drawn 2px wide needs,
+    // and it keeps the file a third smaller than full precision would.
+    const star: Star = [round(ra, 3), round(dec, 3), round(vmag, 2)];
+    if (vmag <= STAR_LABEL_MAG) {
+      const label = bayerLabel(f[3] ?? "");
+      if (label) star.push(label);
+    }
+    out.push(star);
+  }
+
+  out.sort((a, b) => a[0] - b[0]);
+  return out;
+}
+
 async function main() {
   console.log("Downloading catalogues…");
 
@@ -170,6 +241,27 @@ async function main() {
   console.log(`\nNGC/IC/M ${ngc.length} · Sh2 ${sh2.length} · LBN ${lbn.length} · LDN ${ldn.length}`);
   console.log(`${objects.length} objects after de-duplication`);
   console.log(`Wrote ${OUT} (${(bytes / 1024).toFixed(0)} KB)`);
+
+  const starList = await stars();
+  await fs.writeFile(
+    STARS_OUT,
+    JSON.stringify({
+      generated: new Date().toISOString().slice(0, 10),
+      format: "[raDeg, decDeg, vmag, bayerLabel?]",
+      sources: ["Yale Bright Star Catalogue, 5th ed. (Hoffleit & Warren 1991), VizieR V/50 (CDS)"],
+      magnitudeLimit: STAR_MAG_LIMIT,
+      labelMagnitude: STAR_LABEL_MAG,
+      count: starList.length,
+      stars: starList,
+    }),
+  );
+
+  const starBytes = (await fs.stat(STARS_OUT)).size;
+  const labelled = starList.filter((s) => s.length > 3).length;
+  console.log(
+    `\n${starList.length} stars to mag ${STAR_MAG_LIMIT} (${labelled} labelled)` +
+      `\nWrote ${STARS_OUT} (${(starBytes / 1024).toFixed(0)} KB)`,
+  );
 }
 
 main().catch((err) => {
