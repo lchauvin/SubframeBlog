@@ -1,0 +1,290 @@
+/*
+ * The trigger keeps the design's inert search box exactly — 1px divider,
+ * padding 5px 9px, Lucide 14px + mono 9.5px label. Only its behaviour is new.
+ */
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-divider);
+  padding: 5px 9px;
+  color: var(--color-neutral-600);
+  background: none;
+  cursor: pointer;
+  transition:
+    color var(--transition),
+    border-color var(--transition);
+}
+
+.trigger:hover {
+  color: var(--color-accent-700);
+  border-color: var(--color-accent-400);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.triggerLabel {
+  font: 400 9.5px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--scrim-soft);
+  /* Sits below the vertical centre so the panel opens near the header it came
+     from rather than jumping to the middle of the screen. */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 84px 18px 18px;
+  animation: fade var(--transition);
+}
+
+.panel {
+  width: min(540px, 100%);
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  box-shadow: var(--shadow-lg);
+  animation: rise 160ms ease-out;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-divider);
+  flex: none;
+}
+
+.fieldIcon {
+  color: var(--color-neutral-600);
+  flex: none;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  padding: 15px 0;
+  color: var(--color-text);
+  font: 400 16px/1.2 var(--font-body);
+}
+
+.input::placeholder {
+  color: var(--color-neutral-500);
+}
+
+.escape {
+  flex: none;
+  border: 1px solid var(--color-divider);
+  background: none;
+  padding: 3px 6px;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+  font: 400 9.5px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.escape:hover {
+  color: var(--color-accent-700);
+  border-color: var(--color-accent-400);
+}
+
+.sectionLabel {
+  flex: none;
+  padding: 11px 14px 7px;
+  color: var(--color-neutral-600);
+  font: 400 9.5px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.list {
+  margin: 0;
+  padding: 0 6px 6px;
+  list-style: none;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.rowActive {
+  background: var(--color-surface);
+  border-left-color: var(--color-accent);
+}
+
+/* Focus stays in the input (this is a combobox), so the active row is the only
+   selection signal there is — it must not rely on :focus-visible. */
+.row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.thumb {
+  flex: none;
+  width: 64px;
+  height: 40px;
+  overflow: hidden;
+  background: var(--mount);
+  display: block;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rowTitle {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text);
+  line-height: 1.1;
+}
+
+.rowSky {
+  font: 400 12.5px/1.25 var(--font-body);
+  color: var(--color-neutral-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMeta {
+  flex: none;
+  font: 400 9.5px/1.3 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  text-align: right;
+}
+
+.empty {
+  margin: 0;
+  padding: 22px 14px 24px;
+  color: var(--color-neutral-700);
+  font: 400 14px/1.4 var(--font-body);
+}
+
+.emptyQuery {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.hints {
+  flex: none;
+  display: flex;
+  gap: 18px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--color-divider);
+  color: var(--color-neutral-600);
+  font: 400 9.5px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hints span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border: 1px solid var(--color-divider);
+  font: 400 10px/1 var(--font-mono);
+  color: var(--color-neutral-700);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrim,
+  .panel {
+    animation: none;
+  }
+}
+
+/*
+ * The design hid the search box entirely below 720px, when it was only a
+ * placeholder. Now that it works it stays — as the bare magnifier, which costs
+ * the cramped nav far less width than the label did.
+ */
+@media (max-width: 720px) {
+  .triggerLabel {
+    display: none;
+  }
+
+  .trigger {
+    padding: 5px 6px;
+  }
+
+  .scrim {
+    padding: 64px 12px 12px;
+  }
+
+  /* Date and palette are the first thing worth dropping when the row narrows;
+     the catalog id and common name are what identifies the frame. */
+  .rowMeta {
+    display: none;
+  }
+
+  .hints {
+    display: none;
+  }
+}

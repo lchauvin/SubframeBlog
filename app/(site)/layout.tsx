@@ -1,6 +1,6 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { getSiteSettings } from "@/server/db/queries";
+import { getSiteSettings, listSearchDocs } from "@/server/db/queries";
 import { DEFAULT_SITE_SETTINGS } from "@/lib/defaults";
 import { useRequestTimeRendering } from "@/server/rendering";
 
@@ -10,19 +10,21 @@ import { useRequestTimeRendering } from "@/server/rendering";
  */
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   await useRequestTimeRendering();
-  const settings = (await getSiteSettings()) ?? DEFAULT_SITE_SETTINGS;
+  const [settings, searchDocs] = await Promise.all([getSiteSettings(), listSearchDocs()]);
+  const chrome = settings ?? DEFAULT_SITE_SETTINGS;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Header
-        siteName={settings.siteName}
-        tagline={settings.siteTagline}
-        logLabel={settings.navLogLabel}
-        skyLabel={settings.navSkyLabel}
-        aboutLabel={settings.navAboutLabel}
+        siteName={chrome.siteName}
+        tagline={chrome.siteTagline}
+        logLabel={chrome.navLogLabel}
+        skyLabel={chrome.navSkyLabel}
+        aboutLabel={chrome.navAboutLabel}
+        searchDocs={searchDocs}
       />
       <div style={{ flex: 1 }}>{children}</div>
-      <Footer left={settings.footerLeft} right={settings.footerRight} />
+      <Footer left={chrome.footerLeft} right={chrome.footerRight} />
     </div>
   );
 }

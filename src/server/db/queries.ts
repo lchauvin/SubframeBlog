@@ -2,6 +2,8 @@ import "server-only";
 
 import { asc, desc, eq, inArray } from "drizzle-orm";
 
+import { formatMonthYear } from "@/lib/format";
+import type { SearchDoc } from "@/lib/search";
 import { db } from "./client";
 import {
   annotations,
@@ -232,6 +234,52 @@ export async function listAtlasFrames(): Promise<AtlasFrameRow[]> {
 
   const images = await imageSetsFor(rows.map((r) => r.id));
   return rows.map((r) => ({ ...r, images: images.get(r.id) ?? {} }));
+}
+
+/**
+ * The header search index. Only the fields a query can match plus what the
+ * result row draws — the whole thing is serialised into every page, so the
+ * article prose stays out of it deliberately.
+ */
+export async function listSearchDocs(): Promise<SearchDoc[]> {
+  const rows = await db
+    .select({
+      id: frames.id,
+      slug: frames.slug,
+      catalogId: frames.catalogId,
+      commonName: frames.commonName,
+      capturedOn: frames.capturedOn,
+      palette: frames.palette,
+      plateConstellation: frames.plateConstellation,
+      plateClass: frames.plateClass,
+    })
+    .from(frames)
+    .where(eq(frames.published, true))
+    .orderBy(...frameListOrder);
+
+  const images = await imageSetsFor(rows.map((r) => r.id));
+
+  return rows.map((r) => {
+    const thumb = pickImage(images.get(r.id) ?? {}, "thumb");
+    const ref = thumb.webp ?? thumb.jpeg;
+    return {
+      slug: r.slug,
+      catalogId: r.catalogId,
+      commonName: r.commonName,
+      constellation: r.plateConstellation,
+      objectClass: r.plateClass,
+      palette: r.palette,
+      dateLabel: formatMonthYear(r.capturedOn),
+      thumb: ref
+        ? {
+            webp: thumb.webp?.src,
+            jpeg: thumb.jpeg?.src,
+            width: ref.width,
+            height: ref.height,
+          }
+        : null,
+    };
+  });
 }
 
 /** Raw derivative rows, for the admin's upload summary (needs bytes/format). */

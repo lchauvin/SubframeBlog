@@ -272,7 +272,18 @@ Verification, end to end:
 
 ## Explicitly out of scope
 
-Search results screen (the design has none — the header affordance stays a placeholder); DZI tiling
-and OpenSeadragon; working pagination behind `LOAD 2021–2024`; account creation, password reset and
-multi-user roles; click-to-place annotation editing (numeric table only); RSS; a phone layout beyond
-the reductions in §6, which the README says to confirm with the designer first.
+A full search results screen (the header affordance is now a live overlay panel instead — see
+§Search below); DZI tiling and OpenSeadragon; working pagination behind `LOAD 2021–2024`; account
+creation, password reset and multi-user roles; click-to-place annotation editing (numeric table
+only); RSS; a phone layout beyond the reductions in §6, which the README says to confirm with the
+designer first.
+
+## Search
+
+The header affordance opens an overlay panel rather than a results route, because the design has no
+results screen to build and the nav box is where the affordance already sits. Matching runs in the
+browser against an index serialised into every page (`listSearchDocs`): the static export has no
+server to query, and at this scale the index is smaller than the request to fetch it would be. It
+covers catalog id, common name, constellation, object class, palette and capture month — the fields
+a frame is looked up by — and deliberately not the article prose, which would grow the payload on
+every page with each new write-up. `npm run check:search` asserts the ranking.

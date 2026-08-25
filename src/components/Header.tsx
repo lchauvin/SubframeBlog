@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search } from "lucide-react";
 
+import type { SearchDoc } from "@/lib/search";
+import { SiteSearch } from "./SiteSearch";
 import styles from "./Header.module.css";
 
 export function Header({
@@ -12,12 +13,14 @@ export function Header({
   logLabel,
   skyLabel,
   aboutLabel,
+  searchDocs,
 }: {
   siteName: string;
   tagline: string;
   logLabel: string;
   skyLabel: string;
   aboutLabel: string;
+  searchDocs: SearchDoc[];
 }) {
   const pathname = usePathname() ?? "/";
   const onAbout = pathname.startsWith("/about");
@@ -51,10 +54,7 @@ export function Header({
           >
             {aboutLabel}
           </Link>
-          <span className={styles.search} aria-hidden="true">
-            <Search size={14} strokeWidth={1.5} />
-            <span className={styles.searchLabel}>Search</span>
-          </span>
+          <SiteSearch docs={searchDocs} />
         </nav>
       </div>
     </header>
