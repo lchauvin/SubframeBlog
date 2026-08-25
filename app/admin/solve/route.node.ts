@@ -4,7 +4,8 @@ import { getCurrentAdmin } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { annotations, frames } from "@/server/db/schema";
 import { isConfigured } from "@/server/astrometry/client";
-import { advanceSolve, getPlateSolve, retrySolve } from "@/server/astrometry/solve";
+import { attachSolve, advanceSolve, getPlateSolve, retrySolve } from "@/server/astrometry/solve";
+import { parseSolveRef } from "@/lib/astrometry-ref";
 
 /** Current solve state for one frame. Polled by the admin while work is in flight. */
 export async function GET(request: Request) {
@@ -40,6 +41,9 @@ export async function GET(request: Request) {
     configured: isConfigured(),
     status: solve?.status ?? "none",
     message: solve?.message ?? "",
+    hintMode: solve?.hintMode ?? "",
+    submissionId: solve?.submissionId ?? "",
+    jobId: solve?.jobId ?? "",
     objectsFound: solve?.objectsFound ?? 0,
     annotationsWritten: solve?.annotationsWritten ?? 0,
     centerRa: solve?.centerRa ?? null,
@@ -68,14 +72,11 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!isConfigured()) {
-    return Response.json(
-      { error: "ASTROMETRY_API_KEY is not set — see SETUP.md." },
-      { status: 400 },
-    );
-  }
-
-  const { frameId } = (await request.json()) as { frameId?: number };
+  const { frameId, attach, attachKind } = (await request.json()) as {
+    frameId?: number;
+    attach?: string;
+    attachKind?: "submission" | "job";
+  };
   if (!Number.isFinite(frameId)) {
     return Response.json({ error: "Missing frame id." }, { status: 400 });
   }
@@ -86,6 +87,37 @@ export async function POST(request: Request) {
     .where(eq(frames.id, frameId as number))
     .get();
   if (!frame) return Response.json({ error: "That frame no longer exists." }, { status: 404 });
+
+  // Adopting an existing job reads public endpoints only, so it works — and is
+  // most useful — on an install with no API key at all.
+  if (attach !== undefined) {
+    const ref = parseSolveRef(attach, attachKind === "job" ? "job" : "submission");
+    if (!ref) {
+      return Response.json(
+        {
+          error:
+            "Paste a nova.astrometry.net /status/… or /jobs/… link, or the bare id. A /user_images/… link does not name either id.",
+        },
+        { status: 400 },
+      );
+    }
+    try {
+      await attachSolve(frame.id, ref);
+    } catch (err) {
+      return Response.json(
+        { error: err instanceof Error ? err.message : "Could not read that solution." },
+        { status: 400 },
+      );
+    }
+    return Response.json({ ok: true });
+  }
+
+  if (!isConfigured()) {
+    return Response.json(
+      { error: "ASTROMETRY_API_KEY is not set — see SETUP.md." },
+      { status: 400 },
+    );
+  }
 
   await retrySolve(frame.id);
   return Response.json({ ok: true });

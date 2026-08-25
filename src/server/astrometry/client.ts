@@ -44,6 +44,20 @@ export type UploadHints = {
   arcsecPerPx?: number;
 };
 
+/**
+ * The scale bracket sent with a submission, as a RANGE rather than a tight
+ * estimate. The frame's stored arcsec/px describes the sensor and optics, but
+ * exports are routinely drizzled, upscaled, cropped or mosaicked, so the
+ * delivered image's true scale can differ severalfold — a 5983px export off a
+ * 3856px sensor is 1.55x oversampled, making the real scale ~0.64x the nominal.
+ * A narrow estimate excludes the correct answer and the solve fails after a
+ * long grind rather than failing fast.
+ */
+export const scaleWindow = (arcsecPerPx: number) => ({
+  lower: arcsecPerPx / 4,
+  upper: arcsecPerPx * 2,
+});
+
 class AstrometryError extends Error {}
 
 async function post(path: string, payload: unknown): Promise<Record<string, unknown>> {
@@ -103,16 +117,11 @@ export async function uploadImage(
     request.radius = hints.radiusDeg ?? 5;
   }
   if (hints.arcsecPerPx) {
+    const { lower, upper } = scaleWindow(hints.arcsecPerPx);
     request.scale_units = "arcsecperpix";
-    // A RANGE, not a tight estimate. The frame's stored arcsec/px describes the
-    // sensor and optics, but exports are routinely drizzled, upscaled, cropped
-    // or mosaicked, so the delivered image's true scale can differ severalfold
-    // — a 5983px export off a 3856px sensor is 1.55x oversampled, making the
-    // real scale ~0.64x the nominal. A narrow estimate excludes the correct
-    // answer and the solve fails after a long grind rather than failing fast.
     request.scale_type = "ul";
-    request.scale_lower = hints.arcsecPerPx / 4;
-    request.scale_upper = hints.arcsecPerPx * 2;
+    request.scale_lower = lower;
+    request.scale_upper = upper;
   }
 
   const form = new FormData();

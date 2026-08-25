@@ -5,6 +5,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, isNull, lt, or } from "drizzle-orm";
 
+import { type SolveRef } from "../../lib/astrometry-ref";
 import { fieldRadiusDegrees, parseRaDec } from "../../lib/coordinates";
 import { db } from "../db/client";
 import { annotations, frameImages, frames, plateSolves } from "../db/schema";
@@ -16,6 +17,7 @@ import {
   getSubmission,
   isConfigured,
   login,
+  scaleWindow,
   uploadImage,
 } from "./client";
 import { selectAnnotations } from "./objects";
@@ -172,7 +174,51 @@ async function failSolve(frameId: number, message: string): Promise<void> {
   await setStatus(frameId, { status: "failed", message });
 }
 
-async function submitFrame(frameId: number): Promise<void> {
+/**
+ * A hinted attempt that the solver gave up on is re-queued once without hints,
+ * rather than reported as failed.
+ *
+ * A wrong prior confines the search to the wrong index tiles, so the solver
+ * abandons a field it would otherwise solve: a stale arcsec/px puts the true
+ * scale outside the submitted window, and a mistyped plate coordinate points
+ * the position search somewhere else entirely. This is exactly the difference
+ * between a solve here and dropping the same image on nova.astrometry.net by
+ * hand, whose upload form sends no hints at all.
+ */
+async function failOrRetryBlind(
+  frameId: number,
+  hintMode: string,
+  message: string,
+): Promise<void> {
+  if (hintMode !== "hinted") {
+    await failSolve(frameId, message);
+    return;
+  }
+  await setStatus(frameId, {
+    status: "queued",
+    hintMode: "blind",
+    submissionId: "",
+    submittedAt: null,
+    jobId: "",
+    message: `${message} Retrying blind, without the position and scale hints…`,
+    leaseToken: null,
+    leaseExpiresAt: null,
+  });
+}
+
+/** Spells out the prior that was sent, so a failed solve can be reasoned about. */
+function describeHints(hasPosition: boolean, arcsecPerPx: number | undefined): string {
+  const parts = [
+    hasPosition ? "a position from the plate coordinates" : "no position",
+  ];
+  if (arcsecPerPx) {
+    const { lower, upper } = scaleWindow(arcsecPerPx);
+    parts.push(`a ${lower.toFixed(2)}–${upper.toFixed(2)}″/px scale window`);
+  }
+  return `Queued with ${parts.join(" and ")}.`;
+}
+
+async function submitFrame(frameId: number, hintMode: string): Promise<void> {
   const frame = await db.select().from(frames).where(eq(frames.id, frameId)).get();
   if (!frame) return;
 
@@ -197,13 +243,14 @@ async function submitFrame(frameId: number): Promise<void> {
   });
 
   const master = images.find((i) => i.variant === "master");
-  const position = parseRaDec(frame.plateCoordinates);
+  const blind = hintMode === "blind";
+  const position = blind ? null : parseRaDec(frame.plateCoordinates);
   const radiusDeg =
-    master && frame.arcsecPerPx
+    position && master && frame.arcsecPerPx
       ? fieldRadiusDegrees(master.width, master.height, frame.arcsecPerPx)
       : null;
   const submittedScale =
-    frame.arcsecPerPx && master
+    !blind && frame.arcsecPerPx && master
       ? (frame.arcsecPerPx * master.width) / candidate.width
       : undefined;
 
@@ -216,18 +263,27 @@ async function submitFrame(frameId: number): Promise<void> {
     arcsecPerPx: submittedScale,
   });
 
+  // An attempt that carried no prior IS the blind attempt, so record it as one.
+  // Otherwise a failure would trigger a pointless identical retry.
+  const sentHints = Boolean(position) || submittedScale !== undefined;
+
   await setStatus(frameId, {
     status: "solving",
     submissionId,
     submittedAt: new Date(),
     jobId: "",
-    message: position
-      ? "Queued with a positional hint from the plate coordinates."
-      : "Queued (no positional hint — blind solve, this takes longer).",
+    hintMode: sentHints ? "hinted" : "blind",
+    message: sentHints
+      ? describeHints(position !== null, submittedScale)
+      : "Queued as a blind solve — no hints sent. This takes longer.",
   });
 }
 
-async function completeFromJob(frameId: number, jobId: string): Promise<void> {
+async function completeFromJob(
+  frameId: number,
+  jobId: string,
+  origin: "solved" | "attached" = "solved",
+): Promise<void> {
   const frame = await db.select().from(frames).where(eq(frames.id, frameId)).get();
   if (!frame) return;
   const images = await db.select().from(frameImages).where(eq(frameImages.frameId, frameId));
@@ -246,7 +302,14 @@ async function completeFromJob(frameId: number, jobId: string): Promise<void> {
     fetchWcs(jobId),
   ]);
 
-  const image = { width: candidate.width, height: candidate.height };
+  // Marker positions come out as percentages, so the grid only has to match the
+  // solved image's ASPECT — its resolution is irrelevant. Prefer the dimensions
+  // the solver itself recorded, which are the only correct ones when the job
+  // was solved from a file this app did not upload.
+  const image =
+    wcs && wcs.imageWidth > 0 && wcs.imageHeight > 0
+      ? { width: wcs.imageWidth, height: wcs.imageHeight }
+      : { width: candidate.width, height: candidate.height };
   let selected: PlacedMarker[];
   let consideredCount: number;
   let via: string;
@@ -272,15 +335,17 @@ async function completeFromJob(frameId: number, jobId: string): Promise<void> {
   }
 
   const inserted = await writeAutoAnnotations(frameId, selected);
+  const lead = origin === "attached" ? `Adopted job ${jobId}` : "Solved";
   await setStatus(frameId, {
     status: "solved",
     jobId,
     centerRa: calibration?.ra ?? null,
     centerDec: calibration?.dec ?? null,
     radiusDeg: calibration?.radius ?? null,
+    // pixscale describes the image the solver saw; rescale it onto the master.
     pixScale:
       calibration && master
-        ? (calibration.pixscale * candidate.width) / master.width
+        ? (calibration.pixscale * image.width) / master.width
         : (calibration?.pixscale ?? null),
     orientation: calibration?.orientation ?? null,
     wcsJson: wcs ? JSON.stringify(wcs) : "",
@@ -288,10 +353,10 @@ async function completeFromJob(frameId: number, jobId: string): Promise<void> {
     annotationsWritten: inserted.length,
     message:
       inserted.length > 0
-        ? `Solved — ${inserted.length} of ${consideredCount} objects in field added, via ${via}. Review them below.`
+        ? `${lead} — ${inserted.length} of ${consideredCount} objects in field added, via ${via}. Review them below.`
         : consideredCount > 0
-          ? `Solved — all ${consideredCount} objects found are already in the list.`
-          : "Solved, but no catalogued objects fell inside the frame.",
+          ? `${lead} — all ${consideredCount} objects found are already in the list.`
+          : `${lead}, but no catalogued objects fell inside the frame.`,
   });
 }
 
@@ -315,7 +380,7 @@ export async function advanceSolve(frameId: number): Promise<void> {
     let solve = await getPlateSolve(frameId);
     if (!solve) return;
     if (solve.status === "queued" || (solve.status === "solving" && !solve.submissionId)) {
-      await submitFrame(frameId);
+      await submitFrame(frameId, solve.hintMode);
       solve = await getPlateSolve(frameId);
     }
     if (!solve || solve.status !== "solving" || !solve.submissionId) return;
@@ -341,8 +406,9 @@ export async function advanceSolve(frameId: number): Promise<void> {
               : "Solver: queued…",
           });
         } else {
-          await failSolve(
+          await failOrRetryBlind(
             frameId,
+            solve.hintMode,
             "Astrometry.net did not publish a solve job within 15 minutes.",
           );
         }
@@ -354,7 +420,11 @@ export async function advanceSolve(frameId: number): Promise<void> {
 
     const status = await getJobStatus(jobId);
     if (status === "failure") {
-      await failSolve(frameId, "The solver could not find a match for this image.");
+      await failOrRetryBlind(
+        frameId,
+        solve.hintMode,
+        "The solver could not find a match for this image.",
+      );
     } else if (status === "success") {
       await completeFromJob(frameId, jobId);
     } else {
@@ -397,6 +467,7 @@ export async function solveFrame(frameId: number): Promise<void> {
 export function queueSolve(frameId: number): void {
   void setStatus(frameId, {
     status: "queued",
+    hintMode: "hinted",
     submissionId: "",
     submittedAt: null,
     jobId: "",
@@ -431,6 +502,92 @@ export async function retrySolve(frameId: number): Promise<void> {
     return;
   }
   queueSolve(frameId);
+}
+
+/**
+ * Adopts a solution from a job solved outside this app — the escape hatch for
+ * a frame the hosted solver will not solve from our derivative, but does solve
+ * from the full-size export uploaded to nova.astrometry.net by hand.
+ *
+ * Needs no API key: calibration, annotations and the WCS header are all public
+ * reads once a job exists.
+ */
+export async function attachSolve(frameId: number, ref: SolveRef): Promise<void> {
+  if (inFlight.has(frameId)) {
+    throw new Error("A solve is already running for this frame — wait for it to finish.");
+  }
+  inFlight.add(frameId);
+  try {
+    let jobId = ref.id;
+    let submissionId = "";
+
+    if (ref.kind === "submission") {
+      submissionId = ref.id;
+      const submission = await getSubmission(ref.id);
+      if (submission.errorMessage) throw new Error(submission.errorMessage);
+      if (submission.jobs.length === 0) {
+        throw new Error(
+          `Submission ${ref.id} has no job yet${
+            submission.processingFinished ? "" : " — it is still processing"
+          }.`,
+        );
+      }
+      jobId = String(submission.jobs[0]);
+    }
+
+    const status = await getJobStatus(jobId);
+    if (status !== "success") {
+      throw new Error(`Job ${jobId} is "${status}", not a solved job.`);
+    }
+
+    // The frame's markers are placed from the WCS, so a job without one is of
+    // no use here however well it solved.
+    const wcs = await fetchWcs(jobId);
+    if (!wcs) throw new Error(`Job ${jobId} did not publish a WCS header.`);
+
+    // Positions are stored as percentages of the frame, so a job solved from a
+    // differently CROPPED export would scatter markers across the wrong parts
+    // of the image. Resolution may differ freely; shape may not.
+    const master = await db
+      .select()
+      .from(frameImages)
+      .where(and(eq(frameImages.frameId, frameId), eq(frameImages.variant, "master")))
+      .get();
+    if (master && wcs.imageWidth > 0 && wcs.imageHeight > 0) {
+      const solvedAspect = wcs.imageWidth / wcs.imageHeight;
+      const frameAspect = master.width / master.height;
+      if (Math.abs(solvedAspect - frameAspect) / frameAspect > 0.02) {
+        throw new Error(
+          `That job solved a ${wcs.imageWidth}×${wcs.imageHeight} image, a different shape from this frame's ${master.width}×${master.height} master. Markers would land in the wrong places — solve the same crop instead.`,
+        );
+      }
+    }
+
+    await setStatus(frameId, {
+      status: "solving",
+      hintMode: "attached",
+      submissionId,
+      jobId,
+      submittedAt: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      message: `Reading the solution from job ${jobId}…`,
+    });
+
+    // A throw here would otherwise leave the row "solving" with no submission
+    // id, which the next poll would try to fix by uploading the image again.
+    try {
+      await completeFromJob(frameId, jobId, "attached");
+    } catch (err) {
+      await failSolve(
+        frameId,
+        err instanceof Error ? err.message : "Could not read that solution.",
+      );
+      throw err;
+    }
+  } finally {
+    inFlight.delete(frameId);
+  }
 }
 
 export async function getPlateSolve(frameId: number) {

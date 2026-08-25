@@ -233,6 +233,22 @@ into that frame's viewer annotations, ready to review.
   search prior (`center_ra`, `center_dec`, `radius`, `scale_est`), turning an
   all-sky search into a local one. The scale hint is rescaled for the submitted
   derivative — passing the master's arcsec/px would be wrong by ~3×.
+- **When a hint is wrong.** A prior confines the search: a stale arcsec/px puts
+  the true scale outside the submitted window, and a mistyped plate coordinate
+  aims the position search elsewhere. Either makes the solver give up on a
+  field it would otherwise solve — which is why the same image can fail here
+  and succeed when dropped on nova.astrometry.net by hand, whose upload form
+  sends no hints at all. A hinted attempt that fails is therefore re-queued
+  once as a blind solve before being reported as failed; the panel says which
+  prior each attempt carried.
+- **Adopting a solve done by hand.** *Use a solve from astrometry.net* in the
+  frame editor takes a `/status/…` or `/jobs/…` link (or the bare id) and
+  reads that job's calibration, WCS and markers straight in — no upload, and
+  no API key, since those endpoints are public. Useful when the hosted solver
+  will not solve the 2048px derivative but does solve the full-size export.
+  Markers are stored as percentages, so the resolution solved there is
+  irrelevant; the **crop** must match, and a differing aspect ratio is
+  refused rather than scattered across the frame.
 - **Where the objects come from.** Not from astrometry.net's annotation list —
   that covers NGC/IC and bright stars only, so the Sharpless and LBN
   designations these targets are usually known by never appear in it. Instead

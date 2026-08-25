@@ -14,6 +14,7 @@ import {
   angularSeparation,
 } from "../src/server/astrometry/wcs";
 import { catalogAvailable, markersForFrame } from "../src/server/astrometry/catalog";
+import { parseSolveRef } from "../src/lib/astrometry-ref";
 
 let failures = 0;
 const check = (label: string, actual: unknown, expected: unknown, tol = 0) => {
@@ -237,6 +238,35 @@ if (wcs) {
     check("Sh2-114 survives as the preferred designation", Boolean(sh2114), true);
     check("LBN 347 alias is merged into Sh2-114", aliasLabels.includes("LBN 347"), false);
     check("Sh2-114 uses its catalogue diameter, not 64px", (sh2114?.radiusPx ?? 0) > 64, true);
+  }
+}
+
+console.log("\n== parseSolveRef, for adopting a solve done by hand on nova ==");
+{
+  const cases: [string, "submission" | "job", unknown][] = [
+    [
+      "https://nova.astrometry.net/status/13012345",
+      "submission",
+      { kind: "submission", id: "13012345" },
+    ],
+    ["http://nova.astrometry.net/jobs/9876543", "submission", { kind: "job", id: "9876543" }],
+    [
+      "nova.astrometry.net/api/jobs/9876543/calibration/",
+      "submission",
+      { kind: "job", id: "9876543" },
+    ],
+    // The results page names neither id, so it must be refused rather than
+    // read as a submission and sent off to fetch someone else's job.
+    ["https://nova.astrometry.net/user_images/8765432", "submission", null],
+    ["  13012345 ", "submission", { kind: "submission", id: "13012345" }],
+    ["13012345", "job", { kind: "job", id: "13012345" }],
+    ["job 9876543", "submission", { kind: "job", id: "9876543" }],
+    ["sub #13012345", "job", { kind: "submission", id: "13012345" }],
+    ["", "submission", null],
+    ["not an id", "submission", null],
+  ];
+  for (const [input, fallback, expected] of cases) {
+    check(`"${input}" (bare -> ${fallback})`, parseSolveRef(input, fallback), expected);
   }
 }
 

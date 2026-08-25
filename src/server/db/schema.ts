@@ -197,6 +197,14 @@ export const plateSolves = sqliteTable(
     submissionId: text("submission_id").notNull().default(""),
     submittedAt: integer("submitted_at", { mode: "timestamp" }),
     jobId: text("job_id").notNull().default(""),
+    /**
+     * Which search prior the submission carried: "hinted" (centre + scale from
+     * the frame) or "blind". A hint that is wrong — a stale arcsec/px, a
+     * mistyped plate coordinate — makes the solver fail on a field it would
+     * otherwise solve, so a failed hinted attempt is retried blind once.
+     * "attached" marks a solution adopted from a job solved outside this app.
+     */
+    hintMode: text("hint_mode").notNull().default("hinted"),
     // Short lease used to keep two server instances from advancing the same
     // external job concurrently. Expired leases are safely reclaimable.
     leaseToken: text("lease_token"),

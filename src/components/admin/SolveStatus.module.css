@@ -2,6 +2,9 @@
   border: 1px solid var(--color-divider);
   padding: 12px 14px;
   margin-bottom: 14px;
+}
+
+.head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -89,4 +92,54 @@
   border-color: var(--color-accent);
   color: var(--color-accent-700);
   background: var(--color-bg);
+}
+
+.attach {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.attachToggle {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.attachToggle:hover {
+  color: var(--color-accent-700);
+}
+
+.attachForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.attachInput {
+  flex: 1 1 240px;
+  min-width: 0;
+  border: 1px solid var(--color-neutral-400);
+  background: var(--color-bg);
+  padding: 7px 9px;
+  font: 400 12px/1.2 var(--font-mono);
+  color: var(--color-text);
+}
+
+.attachSelect {
+  border: 1px solid var(--color-neutral-400);
+  background: var(--color-bg);
+  padding: 7px 9px;
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text);
 }

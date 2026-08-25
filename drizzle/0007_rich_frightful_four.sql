@@ -1,0 +1,1 @@
+ALTER TABLE `plate_solves` ADD `hint_mode` text DEFAULT 'hinted' NOT NULL;
