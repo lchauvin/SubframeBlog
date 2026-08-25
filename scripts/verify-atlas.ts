@@ -55,6 +55,8 @@ async function main() {
         `${panel.context.length} context · ${panel.graticule.ra.length}+${panel.graticule.dec.length} grid · ` +
         `${String(panel.stars.length).padStart(3)} stars to mag ${panel.starMagnitudeLimit} ` +
         `(${panel.stars.filter((s) => s.label).length} named) · ` +
+        `${panel.constellations.length} figures ` +
+        `[${panel.constellations.filter((c) => c.labelX !== null).map((c) => c.name).join(", ")}] · ` +
         `${panel.width}x${Math.round(panel.height)} · ${panel.spanLabel} @ ${panel.centreLabel}`,
     );
   }

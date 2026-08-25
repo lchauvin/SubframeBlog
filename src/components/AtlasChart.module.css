@@ -50,6 +50,25 @@
 
 /* ------------------------------------------------------------- the backdrop */
 
+/* Connective tissue, not data: lighter than the star dots they join, so a
+   figure reads as shape rather than competing with the frames. */
+.figures polyline {
+  fill: none;
+  stroke: var(--color-neutral-400);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.figureLabels text {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  fill: var(--color-neutral-400);
+  text-anchor: middle;
+}
+
 /* Dark dots on a light ground, sized by magnitude — the way a printed star
    atlas does it, which is also what the design system's ink-on-paper language
    wants. Brightness is carried entirely by size, so no fill ramp is needed. */

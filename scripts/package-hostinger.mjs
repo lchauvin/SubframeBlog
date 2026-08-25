@@ -27,6 +27,7 @@ const required = [
   "drizzle",
   "catalog/deep-sky.json",
   "catalog/stars.json",
+  "catalog/constellations.json",
 ];
 await Promise.all(required.map((entry) => fsp.access(path.join(root, entry))));
 

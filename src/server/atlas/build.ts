@@ -5,6 +5,7 @@ import { formatMinutes, formatMonthYear } from "@/lib/format";
 import { loadCatalog, catalogAvailable } from "../astrometry/catalog";
 import { angularSeparation, pixelToSky, type Wcs } from "../astrometry/wcs";
 import { listAtlasFrames, pickImage, type AtlasFrameRow, type VariantImages } from "../db/queries";
+import { constellationsWithin } from "./constellations";
 import { magnitudeLimitFor, starRadius, starsWithin } from "./stars";
 import { parseRaDec } from "@/lib/coordinates";
 import {
@@ -92,6 +93,15 @@ export type AtlasStar = {
   label?: string;
 };
 
+export type AtlasConstellation = {
+  key: string;
+  name: string;
+  /** One points string per polyline, already clipped to visible runs. */
+  lines: string[];
+  labelX: number | null;
+  labelY: number | null;
+};
+
 export type AtlasGridLine = {
   key: string;
   points: string;
@@ -116,6 +126,7 @@ export type AtlasPanel = {
   context: AtlasContextObject[];
   stars: AtlasStar[];
   starMagnitudeLimit: number;
+  constellations: AtlasConstellation[];
 };
 
 export type AtlasData = {
@@ -572,13 +583,64 @@ function buildPanel(cluster: Placement[], index: number): AtlasPanel {
     );
   }
 
+  /* Constellation figures */
+
+  const title = titleFor(cluster, centre);
+  const constellations: AtlasConstellation[] = [];
+  // Anchors a figure name must clear, so it never lands on a frame's own label.
+  const occupied: PanelPoint[] = [
+    ...footprints.map((f) => ({ x: f.labelX, y: f.labelY })),
+    ...pins.map((p) => ({ x: p.x + p.size / 2, y: p.y })),
+  ];
+
+  for (const figure of constellationsWithin(centre, panelRadiusDeg)) {
+    const lines: string[] = [];
+    const visible: PanelPoint[] = [];
+
+    for (const line of figure.lines) {
+      // A figure can straddle the far hemisphere, where points cannot be
+      // projected at all. Break at those rather than joining across the gap.
+      let run: PanelPoint[] = [];
+      const flush = () => {
+        if (run.length >= 2 && run.some((p) => inside(p))) {
+          lines.push(run.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "));
+        }
+        run = [];
+      };
+
+      for (const [ra, dec] of line) {
+        const p = project(wcs, ra, dec);
+        if (!p || !inside(p, PANEL_WIDTH)) {
+          flush();
+          continue;
+        }
+        run.push(p);
+        if (inside(p)) visible.push(p);
+      }
+      flush();
+    }
+
+    if (lines.length === 0) continue;
+
+    const anchor = labelAnchorFor(figure.name, visible, title, occupied, height);
+    if (anchor) occupied.push(anchor);
+
+    constellations.push({
+      key: figure.id,
+      name: figure.name,
+      lines,
+      labelX: anchor?.x ?? null,
+      labelY: anchor?.y ?? null,
+    });
+  }
+
   /* Scale bar */
 
   const scaleDeg = niceScaleDegrees(widthDeg * 0.2);
 
   return {
     id: `panel-${index}`,
-    title: titleFor(cluster, centre),
+    title,
     width: PANEL_WIDTH,
     height,
     frameCount: cluster.reduce((sum, g) => sum + g.frames.length, 0),
@@ -596,7 +658,46 @@ function buildPanel(cluster: Placement[], index: number): AtlasPanel {
     context,
     stars,
     starMagnitudeLimit,
+    constellations,
   };
+}
+
+/**
+ * Where to write a constellation's name, or nowhere.
+ *
+ * The name is context, so it yields to everything else on the panel: it is
+ * dropped when the figure barely appears, when the panel heading already says
+ * it, when it would be clipped at an edge, or when it would collide with a
+ * frame label. The centroid is tried first and then nudged vertically, because
+ * a figure's middle is usually open sky but occasionally holds a target.
+ */
+function labelAnchorFor(
+  name: string,
+  visible: PanelPoint[],
+  panelTitle: string,
+  occupied: PanelPoint[],
+  height: number,
+): PanelPoint | null {
+  // A single vertex clipping the corner is not worth naming.
+  if (visible.length < 3) return null;
+  // The panel heading already carries the dominant constellation.
+  if (name.toLowerCase() === panelTitle.trim().toLowerCase()) return null;
+
+  const cx = visible.reduce((s, p) => s + p.x, 0) / visible.length;
+  const cy = visible.reduce((s, p) => s + p.y, 0) / visible.length;
+
+  const clear = (p: PanelPoint) =>
+    p.x > 70 &&
+    p.x < PANEL_WIDTH - 70 &&
+    p.y > 26 &&
+    p.y < height - 34 &&
+    occupied.every((o) => Math.hypot(o.x - p.x, o.y - p.y) > 64);
+
+  for (const dy of [0, -34, 34, -68, 68]) {
+    const candidate = { x: cx, y: cy + dy };
+    if (clear(candidate)) return candidate;
+  }
+  return null;
 }
 
 /**

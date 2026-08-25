@@ -110,7 +110,26 @@ export function AtlasChart({ panels }: { panels: AtlasPanel[] }) {
                     first, clipped to the panel, and never interactive. */}
                 <g clipPath={`url(#${panel.id}-clip)`} aria-hidden="true">
                   {/* Deepest layer, so the coordinate grid reads as an overlay
-                      on the sky rather than the other way round. */}
+                      on the sky rather than the other way round. Figures go
+                      under the stars, the way a printed atlas draws them. */}
+                  <g className={styles.figures}>
+                    {panel.constellations.map((figure) =>
+                      figure.lines.map((points, i) => (
+                        <polyline points={points} key={`${figure.key}-${i}`} />
+                      )),
+                    )}
+                  </g>
+
+                  <g className={styles.figureLabels}>
+                    {panel.constellations
+                      .filter((figure) => figure.labelX !== null)
+                      .map((figure) => (
+                        <text x={figure.labelX!} y={figure.labelY!} key={`${figure.key}-name`}>
+                          {figure.name}
+                        </text>
+                      ))}
+                  </g>
+
                   <g className={styles.stars}>
                     {panel.stars.map((star) => (
                       <circle cx={star.x} cy={star.y} r={star.r} key={star.key} />

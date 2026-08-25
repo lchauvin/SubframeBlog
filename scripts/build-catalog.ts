@@ -13,6 +13,8 @@
  *   VII/9     Lynds Bright Nebulae Lynds 1965,     via VizieR (CDS)
  *   VII/7A    Lynds Dark Nebulae   Lynds 1962,     via VizieR (CDS)
  *   V/50      Yale Bright Star Cat Hoffleit 1991,  via VizieR (CDS)
+ *   d3-celestial  constellation lines  BSD-3-Clause, (c) 2015 Olaf Frohn
+ *                 github.com/ofrohn/d3-celestial
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -21,6 +23,7 @@ type Entry = [name: string, ra: number, dec: number, diamArcmin: number, type: s
 
 const OUT = path.join(process.cwd(), "catalog", "deep-sky.json");
 const STARS_OUT = path.join(process.cwd(), "catalog", "stars.json");
+const LINES_OUT = path.join(process.cwd(), "catalog", "constellations.json");
 
 /**
  * Naked-eye limit. Panels pick a stricter cut from their own span, so this only
@@ -183,6 +186,60 @@ async function stars(): Promise<Star[]> {
   return out;
 }
 
+/** IAU abbreviation -> the full name a reader recognises. */
+const CONSTELLATION_NAMES: Record<string, string> = {
+  And: "Andromeda", Ant: "Antlia", Aps: "Apus", Aql: "Aquila", Aqr: "Aquarius",
+  Ara: "Ara", Ari: "Aries", Aur: "Auriga", Boo: "Boötes", Cae: "Caelum",
+  Cam: "Camelopardalis", Cap: "Capricornus", Car: "Carina", Cas: "Cassiopeia",
+  Cen: "Centaurus", Cep: "Cepheus", Cet: "Cetus", Cha: "Chamaeleon",
+  Cir: "Circinus", CMa: "Canis Major", CMi: "Canis Minor", Cnc: "Cancer",
+  Col: "Columba", Com: "Coma Berenices", CrA: "Corona Australis",
+  CrB: "Corona Borealis", Crt: "Crater", Cru: "Crux", Crv: "Corvus",
+  CVn: "Canes Venatici", Cyg: "Cygnus", Del: "Delphinus", Dor: "Dorado",
+  Dra: "Draco", Equ: "Equuleus", Eri: "Eridanus", For: "Fornax", Gem: "Gemini",
+  Gru: "Grus", Her: "Hercules", Hor: "Horologium", Hya: "Hydra", Hyi: "Hydrus",
+  Ind: "Indus", Lac: "Lacerta", Leo: "Leo", Lep: "Lepus", Lib: "Libra",
+  LMi: "Leo Minor", Lup: "Lupus", Lyn: "Lynx", Lyr: "Lyra", Men: "Mensa",
+  Mic: "Microscopium", Mon: "Monoceros", Mus: "Musca", Nor: "Norma",
+  Oct: "Octans", Oph: "Ophiuchus", Ori: "Orion", Pav: "Pavo", Peg: "Pegasus",
+  Per: "Perseus", Phe: "Phoenix", Pic: "Pictor", PsA: "Piscis Austrinus",
+  Psc: "Pisces", Pup: "Puppis", Pyx: "Pyxis", Ret: "Reticulum", Scl: "Sculptor",
+  Sco: "Scorpius", Sct: "Scutum", Ser: "Serpens", Sex: "Sextans",
+  Sge: "Sagitta", Sgr: "Sagittarius", Tau: "Taurus", Tel: "Telescopium",
+  TrA: "Triangulum Australe", Tri: "Triangulum", Tuc: "Tucana",
+  UMa: "Ursa Major", UMi: "Ursa Minor", Vel: "Vela", Vir: "Virgo",
+  Vol: "Volans", Vul: "Vulpecula",
+};
+
+type Constellation = { id: string; name: string; lines: [number, number][][] };
+
+/**
+ * Constellation stick figures, as coordinate polylines.
+ *
+ * The source is GeoJSON, so right ascension arrives as a longitude in
+ * [-180, 180] and has to be wrapped back into [0, 360) before it means
+ * anything to the rest of this codebase.
+ */
+async function constellations(): Promise<Constellation[]> {
+  const raw = await get(
+    "https://raw.githubusercontent.com/ofrohn/d3-celestial/master/data/constellations.lines.json",
+    "Constellation lines (d3-celestial)",
+  );
+  const geo = JSON.parse(raw) as {
+    features: { id: string; geometry: { coordinates: [number, number][][] } }[];
+  };
+
+  return geo.features.map((feature) => ({
+    id: feature.id,
+    name: CONSTELLATION_NAMES[feature.id] ?? feature.id,
+    lines: feature.geometry.coordinates.map((line) =>
+      line.map(
+        ([lon, dec]) => [round(((lon % 360) + 360) % 360, 4), round(dec, 4)] as [number, number],
+      ),
+    ),
+  }));
+}
+
 async function main() {
   console.log("Downloading catalogues…");
 
@@ -261,6 +318,27 @@ async function main() {
   console.log(
     `\n${starList.length} stars to mag ${STAR_MAG_LIMIT} (${labelled} labelled)` +
       `\nWrote ${STARS_OUT} (${(starBytes / 1024).toFixed(0)} KB)`,
+  );
+
+  const figures = await constellations();
+  await fs.writeFile(
+    LINES_OUT,
+    JSON.stringify({
+      generated: new Date().toISOString().slice(0, 10),
+      format: "{ id, name, lines: [[raDeg, decDeg], …][] }",
+      sources: [
+        "Constellation figures from d3-celestial (BSD-3-Clause), (c) 2015 Olaf Frohn — github.com/ofrohn/d3-celestial",
+      ],
+      count: figures.length,
+      constellations: figures,
+    }),
+  );
+
+  const lineBytes = (await fs.stat(LINES_OUT)).size;
+  const polylines = figures.reduce((n, c) => n + c.lines.length, 0);
+  console.log(
+    `\n${figures.length} constellations · ${polylines} polylines` +
+      `\nWrote ${LINES_OUT} (${(lineBytes / 1024).toFixed(0)} KB)`,
   );
 }
 
