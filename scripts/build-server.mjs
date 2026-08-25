@@ -3,6 +3,27 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
+
+/**
+ * Migrate before building, not just at startup.
+ *
+ * `next build` prerenders pages, and the root layout's generateMetadata reads
+ * site settings — so the build opens SQLite while the deployed code is newer
+ * than the schema on disk. On a host that builds before it starts the app
+ * (Hostinger does), a migration that adds a column therefore fails the build
+ * with an opaque "/_not-found" prerender error. Applying migrations here closes
+ * that window; the call is idempotent and the startup one still runs.
+ */
+const migration = spawnSync(process.execPath, [path.join(root, "scripts", "migrate.mjs")], {
+  cwd: root,
+  env: process.env,
+  stdio: "inherit",
+});
+if (migration.status !== 0) {
+  console.error("Migrations failed; refusing to build against a stale schema.");
+  process.exit(migration.status ?? 1);
+}
+
 const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
 const build = spawnSync(process.execPath, [nextBin, "build"], {
   cwd: root,

@@ -12,6 +12,8 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { listPublishedSlugs } from "../src/server/db/queries";
+
 const ROOT = process.cwd();
 const OUT = path.join(ROOT, "out");
 const MEDIA_SRC = path.join(
@@ -67,11 +69,62 @@ async function countHtml(dir: string): Promise<number> {
   return n;
 }
 
+const exists = (p: string) =>
+  fs.access(p).then(
+    () => true,
+    () => false,
+  );
+
+/**
+ * Fails the export when it emitted no page for a published frame.
+ *
+ * Route config that opts a page out of prerendering does not fail this build —
+ * Next simply writes nothing and reports success. That silently shipped a site
+ * with every article missing once already, so the count is checked rather than
+ * trusted.
+ */
+async function verifyPages(): Promise<number> {
+  const slugs = await listPublishedSlugs();
+  const missing: string[] = [];
+
+  for (const slug of slugs) {
+    if (!(await exists(path.join(OUT, "frame", slug, "index.html")))) {
+      missing.push(`/frame/${slug}`);
+    }
+    if (!(await exists(path.join(OUT, "frame", slug, "full", "index.html")))) {
+      missing.push(`/frame/${slug}/full`);
+    }
+  }
+  for (const route of ["index.html", path.join("about", "index.html"), path.join("sky", "index.html")]) {
+    if (!(await exists(path.join(OUT, route)))) missing.push(`/${route.replace(/index\.html$/, "")}`);
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Export is missing ${missing.length} page(s) despite building cleanly:\n  ${missing.join("\n  ")}`,
+    );
+  }
+  return slugs.length;
+}
+
 async function main() {
   console.log("Building static export…\n");
 
   await fs.rm(OUT, { recursive: true, force: true });
   await fs.rm(path.join(ROOT, ".next"), { recursive: true, force: true });
+
+  // The export reads SQLite at build time and never starts the server, so the
+  // startup migration never runs. Without this a schema change fails the build
+  // on an opaque "/_not-found" prerender error. See scripts/build-server.mjs.
+  console.log("Applying migrations…");
+  const migration = spawnSync(process.execPath, [path.join(ROOT, "scripts", "migrate.mjs")], {
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (migration.status !== 0) {
+    console.error("\nMigrations failed; refusing to export against a stale schema.");
+    process.exit(migration.status ?? 1);
+  }
 
   const build = spawnSync("npx", ["next", "build"], {
     stdio: "inherit",
@@ -105,9 +158,11 @@ async function main() {
     ].join("\n"),
   );
 
+  const frameCount = await verifyPages();
   const pages = await countHtml(OUT);
   console.log(
-    `\n${pages} HTML pages · ${media.files} media files (${(media.bytes / 1024 / 1024).toFixed(1)} MB)`,
+    `\n${pages} HTML pages (${frameCount} published frames, article + viewer each) · ` +
+      `${media.files} media files (${(media.bytes / 1024 / 1024).toFixed(1)} MB)`,
   );
   console.log(`\nReady: ${OUT}`);
   console.log("Upload the CONTENTS of out/ to Hostinger's public_html.");

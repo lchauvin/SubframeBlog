@@ -11,6 +11,7 @@ import {
   frames,
   gearItems,
   nights,
+  plateSolves,
   siteSettings,
   siteStats,
   type Frame,
@@ -179,6 +180,58 @@ export async function listPublishedSlugs(): Promise<string[]> {
     .from(frames)
     .where(eq(frames.published, true));
   return rows.map((r) => r.slug);
+}
+
+/**
+ * Published frames with whatever positional evidence exists for each, for the
+ * sky atlas. The solve is LEFT JOINed because a frame with no solve still has
+ * to appear on the chart — its authored coordinates are the fallback.
+ */
+export type AtlasFrameRow = {
+  id: number;
+  slug: string;
+  catalogId: string;
+  commonName: string;
+  revision: string;
+  capturedOn: string;
+  palette: string;
+  totalIntegrationMinutes: number;
+  plateConstellation: string;
+  plateCoordinates: string;
+  solveStatus: string | null;
+  centerRa: number | null;
+  centerDec: number | null;
+  radiusDeg: number | null;
+  wcsJson: string | null;
+  images: ImageSet;
+};
+
+export async function listAtlasFrames(): Promise<AtlasFrameRow[]> {
+  const rows = await db
+    .select({
+      id: frames.id,
+      slug: frames.slug,
+      catalogId: frames.catalogId,
+      commonName: frames.commonName,
+      revision: frames.revision,
+      capturedOn: frames.capturedOn,
+      palette: frames.palette,
+      totalIntegrationMinutes: frames.totalIntegrationMinutes,
+      plateConstellation: frames.plateConstellation,
+      plateCoordinates: frames.plateCoordinates,
+      solveStatus: plateSolves.status,
+      centerRa: plateSolves.centerRa,
+      centerDec: plateSolves.centerDec,
+      radiusDeg: plateSolves.radiusDeg,
+      wcsJson: plateSolves.wcsJson,
+    })
+    .from(frames)
+    .leftJoin(plateSolves, eq(plateSolves.frameId, frames.id))
+    .where(eq(frames.published, true))
+    .orderBy(...frameListOrder);
+
+  const images = await imageSetsFor(rows.map((r) => r.id));
+  return rows.map((r) => ({ ...r, images: images.get(r.id) ?? {} }));
 }
 
 /** Raw derivative rows, for the admin's upload summary (needs bytes/format). */

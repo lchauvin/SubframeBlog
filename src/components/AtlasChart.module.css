@@ -1,0 +1,261 @@
+.panels {
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+}
+
+.caption {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.panelTitle {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 22px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.panelMeta {
+  font: 400 9.5px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+/* Line-drawing figure, per the design system: hairline border, no fill, and the
+   registration marks the system puts on every framed object. */
+.frame {
+  position: relative;
+  border: 1px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+/* Narrow viewports scroll the chart rather than shrinking its labels to dust. */
+.scroll {
+  overflow-x: auto;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 900px;
+}
+
+/* ------------------------------------------------------------- the backdrop */
+
+.grid polyline {
+  fill: none;
+  stroke: var(--color-neutral-300);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.gridLabels text {
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  fill: var(--color-neutral-500);
+}
+
+.raLabel {
+  text-anchor: middle;
+}
+
+.decLabel {
+  text-anchor: start;
+  dominant-baseline: middle;
+}
+
+.context circle {
+  fill: none;
+  stroke: var(--color-neutral-300);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.context text {
+  font: 400 8.5px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  fill: var(--color-neutral-500);
+  text-anchor: middle;
+}
+
+/* --------------------------------------------------------------- the frames */
+
+.hit {
+  cursor: pointer;
+  outline: none;
+}
+
+.footprint {
+  fill: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  stroke: var(--color-accent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition: fill var(--transition), stroke-width var(--transition);
+}
+
+.hit:hover .footprint,
+.hit:focus-visible .footprint {
+  fill: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  stroke-width: 1.5;
+}
+
+/* Positioned but unsolved: same geometry language, explicitly provisional. */
+.pin {
+  fill: none;
+  stroke: var(--color-neutral-500);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+  transition: stroke var(--transition);
+}
+
+.hit:hover .pin,
+.hit:focus-visible .pin {
+  stroke: var(--color-accent);
+}
+
+.shapeLabel {
+  font: 400 10px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  fill: var(--color-accent-700);
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.chip {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  fill: var(--color-neutral-500);
+}
+
+.hit:focus-visible .footprint,
+.hit:focus-visible .pin {
+  stroke: var(--color-accent-800);
+  stroke-width: 2.5;
+  stroke-dasharray: none;
+}
+
+.scaleBar line {
+  stroke: var(--color-neutral-600);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.scaleBar text {
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  fill: var(--color-neutral-600);
+}
+
+/* ---------------------------------------------------------------- the card */
+
+.card {
+  position: absolute;
+  z-index: 3;
+  width: 260px;
+  padding: 10px;
+  border: 1px solid var(--color-neutral-400);
+  background: var(--color-bg);
+  pointer-events: auto;
+}
+
+.cardMount {
+  background: var(--mount);
+  padding: 4px;
+  margin-bottom: 9px;
+}
+
+.cardImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.cardKicker {
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+
+.cardTitle {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 24px;
+  line-height: 1.05;
+  color: var(--color-text);
+  margin-top: 5px;
+}
+
+.cardName {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  line-height: 1.15;
+}
+
+.cardMeta {
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.cardRows {
+  margin-top: 9px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.cardRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--color-divider);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.cardRow:last-child {
+  border-bottom: none;
+}
+
+.cardRow:hover {
+  color: var(--color-accent-700);
+}
+
+.cardRowMeta {
+  font: 400 9px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-500);
+}
+
+@media (max-width: 900px) {
+  .panels {
+    gap: 32px;
+  }
+  .caption {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

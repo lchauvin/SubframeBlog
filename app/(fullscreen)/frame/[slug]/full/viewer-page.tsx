@@ -7,13 +7,18 @@ import { getCurrentAdmin } from "@/server/auth/session";
 import {
   getFrameBySlug,
   getSiteSettings,
+  listPublishedSlugs,
   pickImage,
 } from "@/server/db/queries";
 
 const IS_EXPORT = process.env.ASTROBLOG_EXPORT === "1";
-export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
+/** Every published slug, for the export — see the article route. */
+export async function publishedViewerParams(): Promise<{ slug: string }[]> {
+  return (await listPublishedSlugs()).map((slug) => ({ slug }));
+}
+
+export async function viewerMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -73,7 +78,7 @@ async function renderViewerPage({
   );
 }
 
-export default async function ViewerPage(props: {
+export async function ViewerPage(props: {
   params: Promise<{ slug: string }>;
 }) {
   try {

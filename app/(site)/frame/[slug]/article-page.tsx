@@ -21,6 +21,7 @@ import {
   getFrameBySlug,
   getGearItems,
   getSiteSettings,
+  listPublishedSlugs,
   pickImage,
 } from "@/server/db/queries";
 
@@ -31,9 +32,17 @@ import styles from "./article.module.css";
  * only published frames are emitted at all.
  */
 const IS_EXPORT = process.env.ASTROBLOG_EXPORT === "1";
-export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
+/**
+ * Every published slug, for the export's `generateStaticParams`. A static build
+ * has no server to render an unknown slug on demand, so the list has to be
+ * known up front.
+ */
+export async function publishedFrameParams(): Promise<{ slug: string }[]> {
+  return (await listPublishedSlugs()).map((slug) => ({ slug }));
+}
+
+export async function articleMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -231,7 +240,7 @@ async function renderArticlePage({
   );
 }
 
-export default async function ArticlePage(props: {
+export async function ArticlePage(props: {
   params: Promise<{ slug: string }>;
 }) {
   try {

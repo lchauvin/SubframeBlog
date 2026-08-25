@@ -9,9 +9,11 @@ export const DEFAULT_SITE_SETTINGS = {
   siteName: "Subframe",
   siteTagline: "MTL / Bortle 9",
   navLogLabel: "The log",
+  navSkyLabel: "Sky atlas",
   navAboutLabel: "About & rig",
   logHeading: "The log",
   logPaginationLabel: "",
+  skyHeading: "The sky",
   aboutKicker: "About",
   aboutHeading: "Narrowband from\na Bortle 9 sky",
   aboutBody:

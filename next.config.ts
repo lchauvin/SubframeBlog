@@ -12,6 +12,13 @@ import type { NextConfig } from "next";
  * named `*.node.tsx` / `*.node.ts` and dropped from `pageExtensions` here.
  * That is Next's own mechanism for excluding routes from a build, and it beats
  * shuffling files around at build time.
+ *
+ * The `*.export.tsx` half is the mirror image: a route only the static build
+ * sees. The frame routes need it because the two modes require contradictory
+ * route config — `force-dynamic` under the server so an admin publish appears
+ * at once, `generateStaticParams` in the export because there is no server to
+ * render an unknown slug — and Next only accepts a literal for that config, so
+ * it cannot be decided inside one file.
  */
 const isExport = process.env.ASTROBLOG_EXPORT === "1";
 
@@ -19,7 +26,7 @@ const nextConfig: NextConfig = {
   output: isExport ? "export" : "standalone",
 
   pageExtensions: isExport
-    ? ["tsx", "ts"]
+    ? ["export.tsx", "export.ts", "tsx", "ts"]
     : ["node.tsx", "node.ts", "tsx", "ts"],
 
   // Emits out/frame/ic-1848/index.html rather than out/frame/ic-1848.html, so

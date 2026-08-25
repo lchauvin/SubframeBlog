@@ -53,6 +53,17 @@ function includeEntry(entry) {
   if (basename.startsWith(".env.") && basename !== ".env.example") return false;
   if (basename.endsWith(".zip")) return false;
   if (basename.endsWith(".db") || basename.includes(".db-")) return false;
+
+  // Handover notes and deployment docs. Nothing reads them at runtime, and the
+  // copies that matter live in the repository.
+  if (basename.endsWith(".md")) return false;
+
+  // Frame drafts produced by the WBPP importer, which are authoring input for
+  // the admin rather than anything the server reads. Restricted to the project
+  // root, where they are written, so a nested fixture of the same shape would
+  // still ship.
+  if (parts.length === 1 && /-frame\.json$/i.test(basename)) return false;
+
   return entry;
 }
 

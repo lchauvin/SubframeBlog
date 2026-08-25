@@ -18,6 +18,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         siteName={settings.siteName}
         tagline={settings.siteTagline}
         logLabel={settings.navLogLabel}
+        skyLabel={settings.navSkyLabel}
         aboutLabel={settings.navAboutLabel}
       />
       <div style={{ flex: 1 }}>{children}</div>

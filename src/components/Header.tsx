@@ -10,16 +10,20 @@ export function Header({
   siteName,
   tagline,
   logLabel,
+  skyLabel,
   aboutLabel,
 }: {
   siteName: string;
   tagline: string;
   logLabel: string;
+  skyLabel: string;
   aboutLabel: string;
 }) {
   const pathname = usePathname() ?? "/";
-  // "The log" stays active on article and viewer routes, matching the prototype.
   const onAbout = pathname.startsWith("/about");
+  const onSky = pathname.startsWith("/sky");
+  // "The log" stays active on article and viewer routes, matching the prototype.
+  const onLog = !onAbout && !onSky;
 
   const cls = (active: boolean) =>
     active ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink;
@@ -34,8 +38,11 @@ export function Header({
         </Link>
 
         <nav className={styles.nav}>
-          <Link href="/" className={cls(!onAbout)} aria-current={!onAbout ? "page" : undefined}>
+          <Link href="/" className={cls(onLog)} aria-current={onLog ? "page" : undefined}>
             {logLabel}
+          </Link>
+          <Link href="/sky" className={cls(onSky)} aria-current={onSky ? "page" : undefined}>
+            {skyLabel}
           </Link>
           <Link
             href="/about"

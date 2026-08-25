@@ -43,6 +43,13 @@
       "when": 1787523061014,
       "tag": "0005_crazy_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787628759606,
+      "tag": "0006_nifty_lester",
+      "breakpoints": true
     }
   ]
 }

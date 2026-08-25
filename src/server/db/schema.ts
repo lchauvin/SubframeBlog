@@ -254,10 +254,13 @@ export const siteSettings = sqliteTable("site_settings", {
   siteTagline: text("site_tagline").notNull().default("MTL / Bortle 9"),
 
   navLogLabel: text("nav_log_label").notNull().default("The log"),
+  navSkyLabel: text("nav_sky_label").notNull().default("Sky atlas"),
   navAboutLabel: text("nav_about_label").notNull().default("About & rig"),
 
   logHeading: text("log_heading").notNull().default("The log"),
   logPaginationLabel: text("log_pagination_label").notNull().default(""),
+
+  skyHeading: text("sky_heading").notNull().default("The sky"),
 
   aboutKicker: text("about_kicker").notNull().default("About"),
   aboutHeading: text("about_heading").notNull().default(""),

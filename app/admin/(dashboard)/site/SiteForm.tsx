@@ -12,9 +12,11 @@ export type SiteFormValues = {
   siteName: string;
   siteTagline: string;
   navLogLabel: string;
+  navSkyLabel: string;
   navAboutLabel: string;
   logHeading: string;
   logPaginationLabel: string;
+  skyHeading: string;
   aboutKicker: string;
   aboutHeading: string;
   aboutBody: string;
@@ -80,6 +82,7 @@ export function SiteForm({
           {field("siteName", "Site name", "Replaces the working title “Subframe”")}
           {field("siteTagline", "Tagline", "Sits beside the wordmark")}
           {field("navLogLabel", "Nav — log label")}
+          {field("navSkyLabel", "Nav — sky atlas label")}
           {field("navAboutLabel", "Nav — about label")}
           {field("footerLeft", "Footer left")}
           {field("footerRight", "Footer right")}
@@ -98,6 +101,15 @@ export function SiteForm({
         </div>
         <p className={styles.hint} style={{ marginTop: 10 }}>
           The subhead under the heading is computed from published frames, not edited here.
+        </p>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Sky atlas</h2>
+        <div className={styles.grid2}>{field("skyHeading", "Heading")}</div>
+        <p className={styles.hint} style={{ marginTop: 10 }}>
+          The chart itself is derived from each frame&rsquo;s plate solve, falling back to the
+          coordinates on its spec plate. There is nothing to author here beyond the heading.
         </p>
       </section>
 
