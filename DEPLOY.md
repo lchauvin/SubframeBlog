@@ -126,7 +126,42 @@ Back up the complete `ASTROBLOG_DATA_DIR/media` directory with Hostinger's
 hosting backup or File Manager tools. Keep at least one copy outside Hostinger.
 Test restoring both the database and media locally before relying on the backup.
 
-## 9. Static export remains available
+## 9. Updating image derivatives after a pipeline change
+
+Derivatives are generated only when a master is uploaded, so a change to
+`VARIANTS` in `src/server/media/derivatives.ts` — a new size, different chroma,
+the Deep Zoom pyramid — reaches nothing already stored. Existing frames keep
+serving their old derivatives; the site does not break, it just quietly does not
+improve.
+
+**You do not need to re-upload anything.** Masters live at
+`ASTROBLOG_DATA_DIR/media/<slug>/master.*` on the server and survive
+redeployment, so everything can be rebuilt in place.
+
+Use **Image derivatives** on `/admin/diagnostics`. It lists which frames are
+behind and why, and rebuilds them from the stored masters. It processes **one
+frame per request**, because a 21 MP master takes a few seconds of `sharp` on
+shared CPU and a single request covering every frame can time out halfway
+through. Progress is shown per frame, and a run can be stopped and resumed —
+each frame is independently idempotent.
+
+Locally the equivalent is `npm run media:rederive [slug]`. That script is in the
+deployment ZIP but runs through `tsx`, a devDependency shared hosting may not
+install, which is why the admin control exists.
+
+Before a bulk rebuild:
+
+- **Check disk.** The pyramid adds roughly 5 MB per frame on top of the other
+  derivatives.
+- **Back up `ASTROBLOG_DATA_DIR/media`** (§8). A rebuild rewrites every
+  derivative. Masters are never touched, so it is recoverable regardless, but
+  the backup is cheap.
+
+Schema changes needed by a new pipeline — `frame_tiles`, for the pyramid — are
+applied automatically on the first boot after deploying, by the startup
+migration in `instrumentation.ts`. There is no manual migration step.
+
+## 10. Static export remains available
 
 `npm run export` still creates `out/` for static-only hosting. That is a separate
 deployment model: it excludes `/admin`, runtime media, health checks and server

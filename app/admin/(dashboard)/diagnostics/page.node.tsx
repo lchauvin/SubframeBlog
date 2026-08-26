@@ -6,12 +6,15 @@ import { isConfigured } from "@/server/astrometry/client";
 import { getDb } from "@/server/db/client";
 import { plateSolves } from "@/server/db/schema";
 import { checkReadiness } from "@/server/health";
+import { listMediaStatus } from "@/server/media/status";
 import {
   DATA_ROOT,
   DB_PATH,
   MEDIA_ROOT,
   isDataRootInsideDeployTree,
 } from "@/server/paths";
+
+import { MediaRederive } from "./MediaRederive";
 
 import styles from "../../admin.module.css";
 
@@ -47,7 +50,7 @@ async function directoryUsage(dir: string): Promise<{ files: number; bytes: numb
 const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 export default async function DiagnosticsPage() {
-  const [readiness, dbBytes, media, pending] = await Promise.all([
+  const [readiness, dbBytes, media, pending, mediaStatus] = await Promise.all([
     checkReadiness(),
     fileSize(DB_PATH),
     directoryUsage(MEDIA_ROOT),
@@ -55,7 +58,10 @@ export default async function DiagnosticsPage() {
       .select({ id: plateSolves.id })
       .from(plateSolves)
       .where(inArray(plateSolves.status, ["queued", "solving"])),
+    listMediaStatus(),
   ]);
+
+  const staleMedia = mediaStatus.filter((f) => f.stale).length;
 
   const rows = [
     ["Readiness", readiness.ok ? "Ready" : "Needs attention"],
@@ -64,6 +70,10 @@ export default async function DiagnosticsPage() {
     ["SQLite database", mb(dbBytes)],
     ["Media", `${media.files} files · ${mb(media.bytes)}`],
     ["Pending plate solves", String(pending.length)],
+    [
+      "Derivatives behind the pipeline",
+      staleMedia === 0 ? "None" : `${staleMedia} of ${mediaStatus.length} frames`,
+    ],
     ["Astrometry.net", isConfigured() ? "Configured" : "Not configured"],
   ];
 
@@ -95,6 +105,8 @@ export default async function DiagnosticsPage() {
           ))}
         </div>
       </section>
+
+      <MediaRederive frames={mediaStatus} />
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>SQLite snapshot</h2>

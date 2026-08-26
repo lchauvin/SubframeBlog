@@ -1,8 +1,11 @@
 "use server";
 
+import fs from "node:fs/promises";
+import path from "node:path";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { authoredGearRows } from "@/lib/defaults";
@@ -21,7 +24,12 @@ import {
   siteStats,
 } from "@/server/db/schema";
 import { slugExists } from "@/server/db/queries";
-import { deleteFrameMedia, renameFrameMedia } from "@/server/media/derivatives";
+import {
+  deleteFrameMedia,
+  processMaster,
+  renameFrameMedia,
+} from "@/server/media/derivatives";
+import { MEDIA_ROOT } from "@/server/paths";
 
 export type FormState = { error?: string; success?: string };
 
@@ -375,4 +383,70 @@ export async function saveSite(_prev: FormState, formData: FormData): Promise<Fo
 
   revalidatePath("/", "layout");
   return { success: "Saved." };
+}
+
+export type RederiveResult = {
+  slug: string;
+  ok: boolean;
+  message: string;
+  derivatives?: number;
+  viewerLongEdge?: number;
+  tileCount?: number;
+};
+
+/**
+ * Rebuilds one frame's derivatives from its stored master.
+ *
+ * One frame per call, deliberately. Locally a 21 MP master takes ~3s for the
+ * derivatives plus the pyramid; on shared hosting it is slower and sharp holds
+ * real memory for it, so looping every frame inside a single request is a good
+ * way to time out halfway through with no record of where it stopped. The
+ * caller drives the loop and sees progress per frame, which also means an
+ * interrupted run simply resumes — each frame is independently idempotent.
+ *
+ * This is the production counterpart to `npm run media:rederive`: that script
+ * runs through `tsx`, a devDependency that shared hosting may not install, and
+ * `processMaster()` is otherwise only reachable by uploading a master that is
+ * already sitting on the server.
+ */
+export async function rederiveFrameAction(frameId: number): Promise<RederiveResult> {
+  await requireAdmin();
+
+  const frame = await db.select().from(frames).where(eq(frames.id, frameId)).get();
+  if (!frame) return { slug: String(frameId), ok: false, message: "That frame no longer exists." };
+
+  const master = await db
+    .select()
+    .from(frameImages)
+    .where(and(eq(frameImages.frameId, frameId), eq(frameImages.variant, "master")))
+    .get();
+  if (!master) return { slug: frame.slug, ok: false, message: "No master recorded." };
+
+  let buffer: Buffer;
+  try {
+    buffer = await fs.readFile(path.join(MEDIA_ROOT, master.path));
+  } catch {
+    return { slug: frame.slug, ok: false, message: "Master file is missing on disk." };
+  }
+
+  try {
+    const result = await processMaster({ frameId, slug: frame.slug, buffer });
+    const viewer = result.generated.find((g) => g.variant === "viewer" && g.format === "jpeg");
+    revalidatePath("/", "layout");
+    return {
+      slug: frame.slug,
+      ok: true,
+      message: "Rebuilt.",
+      derivatives: result.generated.length,
+      viewerLongEdge: viewer ? Math.max(viewer.width, viewer.height) : undefined,
+      tileCount: result.tiles?.tileCount ?? 0,
+    };
+  } catch (error) {
+    console.error(`[astroblog] Re-derive failed for "${frame.slug}".`, error);
+    return {
+      slug: frame.slug,
+      ok: false,
+      message: error instanceof Error ? error.message : "Unknown error.",
+    };
+  }
 }
