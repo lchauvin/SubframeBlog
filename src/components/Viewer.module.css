@@ -160,6 +160,36 @@
   image-rendering: pixelated;
 }
 
+/* ---- Tile layer ---------------------------------------------------------- */
+
+/* Sits over the base image inside the same transform wrap, so it shares the
+   wrap's coordinate space and the compositor keeps handling pan and zoom. */
+.tileLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tile {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  transition: opacity 140ms linear;
+}
+
+/* Tiles are the pixels the viewer exists to show, so past 1:1 they get the
+   same treatment as the base image. */
+.tilePixelated {
+  image-rendering: pixelated;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile {
+    transition: none;
+  }
+}
+
 .annotationLayer {
   position: absolute;
   inset: 0;

@@ -10,6 +10,7 @@ import {
   frameFilters,
   frameGear,
   frameImages,
+  frameTiles,
   frames,
   gearItems,
   nights,
@@ -99,6 +100,8 @@ export type FullFrame = Frame & {
   nights: (typeof nights.$inferSelect)[];
   annotations: (typeof annotations.$inferSelect)[];
   gear: (typeof frameGear.$inferSelect)[];
+  /** null when the frame has no pyramid — the viewer then serves the base alone. */
+  tiles: typeof frameTiles.$inferSelect | null;
 };
 
 async function hydrate(frame: Frame): Promise<FullFrame> {
@@ -107,8 +110,9 @@ async function hydrate(frame: Frame): Promise<FullFrame> {
   let annotationRows: (typeof annotations.$inferSelect)[];
   let gearRows: (typeof frameGear.$inferSelect)[];
   let images: Map<number, ImageSet>;
+  let tileRow: (typeof frameTiles.$inferSelect) | undefined;
   try {
-    [filterRows, nightRows, annotationRows, gearRows, images] = await Promise.all([
+    [filterRows, nightRows, annotationRows, gearRows, images, tileRow] = await Promise.all([
       db
         .select()
         .from(frameFilters)
@@ -130,6 +134,7 @@ async function hydrate(frame: Frame): Promise<FullFrame> {
         .where(eq(frameGear.frameId, frame.id))
         .orderBy(asc(frameGear.position), asc(frameGear.id)),
       imageSetsFor([frame.id]),
+      db.select().from(frameTiles).where(eq(frameTiles.frameId, frame.id)).get(),
     ]);
   } catch (error) {
     console.error(
@@ -146,6 +151,7 @@ async function hydrate(frame: Frame): Promise<FullFrame> {
     nights: nightRows,
     annotations: annotationRows,
     gear: gearRows,
+    tiles: tileRow ?? null,
   };
 }
 

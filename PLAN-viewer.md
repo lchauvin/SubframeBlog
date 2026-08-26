@@ -294,10 +294,14 @@ From `view` and `canvas`, project the visible rect into level pixel space, conve
 range, and inflate by **one tile of margin** on each side so a pan reveals loaded tiles rather than
 loading ones.
 
-At a 1600x760 canvas on DPR-2, 1:1 needs 3200x1520 device px = **7 x 3 = 21 tiles**, ~35 with
-margin. At the measured **63 KB average** for level 13 that is **~1.3 MB for a deep view**, ~2.2 MB
-after panning around — and only when the user actually goes deep, versus 1.41 MB unconditionally
-today.
+**Built with no margin, on measurement.** At a 1600x760 canvas on DPR-2, the fit width is 1300 CSS
+px and 1:1 lands at zoom 2.30, where the visible set is **7 x 4 = 28 tiles (~1.7 MB)**. One ring of
+margin makes it **9 x 6 = 54 tiles (~3.3 MB)** — nearly double the bytes to hide a transient. Since
+the base image is never unmounted, an edge revealed mid-pan is soft for a moment rather than blank,
+which is the whole reason the base stays.
+
+If that ever reads as cheap-looking, the fix is prefetching one ring once the gesture settles rather
+than a permanent margin: `interacting` in `Viewer.tsx` already tracks that moment.
 
 ## 2.7 Rendering — DOM tiles, not canvas
 
@@ -325,17 +329,33 @@ mitigation, and it is testable in isolation.
 
 ## 2.9 Retune the base derivative
 
-With tiles carrying everything above it, the base only has to serve fit view. Drop `viewer` from
-6000 to **`longEdge: 3200`** — exactly a 1600 CSS px canvas at DPR 2.
+With tiles carrying everything above it, the base only has to serve fit view.
 
-Estimated from the current 4000px / 1.41 MB file: ~0.79 MB at 3200px, x1.15 for 4:4:4 =
-**~0.91 MB**.
+The ~0.91 MB estimated here was wrong — it scaled the old 4:2:0 file and ignored that Stage 1 had
+switched this variant to 4:4:4. Measured on the real master:
 
-Net effect: fit view gets **lighter than today** (0.91 MB vs 1.41 MB), deep zoom becomes genuinely
+| base | 4:4:4 | 4:2:0 | covers, at DPR 2 |
+| --- | --- | --- | --- |
+| 2048 | — | 1.08 MB | 1024 CSS px |
+| 2560 | 1.59 MB | 1.04 MB | 1280 CSS px |
+| **2880** | — | **1.26 MB** | **1440 CSS px** |
+| 3200 | 2.28 MB | 1.49 MB | 1600 CSS px |
+
+**Built as 2880 at 4:2:0 = 1.26 MB**, against 1.41 MB for the 4000px file it replaces.
+
+The chroma reversal is not a retreat from §1.2 — it follows from the pyramid existing. 4:2:0 is only
+visible at 1:1, and with tiles this variant is never *seen* at 1:1: it serves fit and below, and the
+tiles (which stay 4:4:4) take over above. Spending 35% more bytes on the one file every viewer open
+must wait for, to fix an artefact nobody can see in that file, is the wrong trade. Reverse it only
+if the pyramid is ever removed.
+
+2880 covers a 1440 CSS px image at DPR 2 — a maximised window on anything short of a 4K panel.
+Above that the base is fractionally soft at fit, which §2.5's activation margin deliberately
+tolerates rather than switching on a whole level's worth of tiles at fit view.
+
+Net effect: fit view is **lighter than before Stage 1** (1.26 MB vs 1.41 MB), deep zoom is genuinely
 1:1 for the first time, and the 21 MP iOS decode ceiling stops mattering because no single image
 ever exceeds it.
-
-Also drop the unused `viewer.webp` (defect 5 above), or start serving it via `<picture>`.
 
 ## 2.10 Seam contingency
 
@@ -360,7 +380,10 @@ That is a real FTP upload cost. If it becomes painful, the escape hatch is a per
 `tilesEnabled` flag so only the frames worth deep-zooming ship a pyramid — the base layer means
 frames without tiles still work, exactly as they do in Stage 1.
 
-Add `tiles.dzi` to `SKIP_VARIANTS` — §2.4 means nothing ever requests it.
+No `SKIP_VARIANTS` entry was needed for `tiles.dzi` in the end: since §2.4 means nothing ever reads
+the descriptor, the pipeline deletes it at generation instead. `check:tiles` asserts it is gone.
+
+**Measured export**, 5 frames: 455 media files, 35.8 MB.
 
 ## Stage 2 verification
 

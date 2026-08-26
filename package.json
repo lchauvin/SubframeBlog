@@ -21,13 +21,14 @@
     "check:deploy": "node --conditions react-server --import tsx scripts/verify-deploy.ts",
     "check:search": "node --conditions react-server --import tsx scripts/verify-search.ts",
     "check:server": "node scripts/smoke-server.mjs",
+    "check:tiles": "node --conditions react-server --import tsx scripts/verify-tiles.ts",
     "check:wbpp": "python -m unittest discover -s scripts/tests -p test_*.py -v",
     "import:wbpp": "python scripts/import-wbpp.py",
     "package:hostinger": "node scripts/package-hostinger.mjs",
     "build:catalog": "node --conditions react-server --import tsx scripts/build-catalog.ts",
     "solve": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --conditions react-server --import tsx scripts/solve-frame.ts",
     "admin:password": "node --conditions react-server --import tsx scripts/admin-password.ts",
-    "verify:deploy": "npm run typecheck && npm run check:astrometry && npm run check:atlas && npm run check:search && npm run check:deploy && npm run export && npm run build && npm run check:server"
+    "verify:deploy": "npm run typecheck && npm run check:astrometry && npm run check:atlas && npm run check:search && npm run check:tiles && npm run check:deploy && npm run export && npm run build && npm run check:server"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.0",

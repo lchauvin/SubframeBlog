@@ -57,6 +57,13 @@
       "when": 1787635298363,
       "tag": "0007_rich_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787717556558,
+      "tag": "0008_fuzzy_salo",
+      "breakpoints": true
     }
   ]
 }

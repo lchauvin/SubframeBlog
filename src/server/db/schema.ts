@@ -94,6 +94,44 @@ export const frameImages = sqliteTable(
 );
 
 /**
+ * The Deep Zoom pyramid backing the viewer above 1:1, one row per frame.
+ *
+ * Not a `frame_images` variant: that table is one row per file, and a pyramid
+ * is ~84 of them addressed arithmetically rather than by path. Everything the
+ * client needs to build a tile URL lives here, so it never fetches or parses
+ * the `.dzi` descriptor — which also keeps the media route's content-type
+ * whitelist unchanged.
+ *
+ * `extension` is stored rather than assumed: libvips silently overrides a
+ * requested `.jpg` suffix with the pipeline's own format, so these files are
+ * `.jpeg` on disk. Hardcoding the other spelling 404s every tile.
+ */
+export const frameTiles = sqliteTable(
+  "frame_tiles",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    frameId: integer("frame_id")
+      .notNull()
+      .references(() => frames.id, { onDelete: "cascade" }),
+    /** Directory relative to the media root, e.g. `ngc-6888/tiles_files`. */
+    path: text("path").notNull(),
+    extension: text("extension").notNull().default("jpeg"),
+    tileSize: integer("tile_size").notNull(),
+    overlap: integer("overlap").notNull().default(0),
+    /** Deepest level. Its dimensions are `width` x `height` below. */
+    maxLevel: integer("max_level").notNull(),
+    /** Shallowest level kept; everything the base image covers is pruned. */
+    minLevel: integer("min_level").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    tileCount: integer("tile_count").notNull().default(0),
+    bytes: integer("bytes").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [uniqueIndex("frame_tiles_frame_idx").on(t.frameId)],
+);
+
+/**
  * Per-filter integration. Stored and authoritative — bar geometry is derived
  * from these at render time, but nothing recomputes them from `nights`.
  */

@@ -6,8 +6,31 @@ import sharp from "sharp";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db/client";
-import { frameImages } from "../db/schema";
+import { frameImages, frameTiles } from "../db/schema";
 import { MEDIA_ROOT } from "../paths";
+
+/** Deep Zoom geometry. 512 rather than the 256 default: a quarter of the file
+ *  count, and these get uploaded to shared hosting one by one. */
+export const TILE_SIZE = 512;
+/** 0 keeps tile (x,y) covering exactly [x*size, (x+1)*size). See §2.10 of the
+ *  plan for the seam contingency if that ever shows. */
+export const TILE_OVERLAP = 0;
+/**
+ * How far the base derivative must be outmatched before tiles are worth it.
+ *
+ * Without a margin, a maximised window on a large display asks for a few
+ * percent more than the base can give and switches on the whole deepest level
+ * at fit — where the visible region is the entire image, so that is every tile
+ * at once. A 15% tolerance absorbs those cases; a shortfall that small is not
+ * visible, and a full level's worth of downloads very much is.
+ */
+export const TILE_ACTIVATION = 1.15;
+
+/** DZI level dimensions, per the spec: halve and round up, from the deepest. */
+export const levelSize = (fullWidth: number, fullHeight: number, maxLevel: number, level: number) => {
+  const scale = 2 ** (maxLevel - level);
+  return { width: Math.ceil(fullWidth / scale), height: Math.ceil(fullHeight / scale) };
+};
 
 /**
  * AVIF is deliberately absent: encoding a ~6000px master to AVIF costs far more
@@ -32,13 +55,22 @@ export const VARIANTS = [
   // out, so serving it here would undo the chroma fix above — and the viewer
   // renders a bare <img> off the JPEG, so the WebP was never served anyway. It
   // was 3 MB per frame of export weight for nothing.
+  //
+  // 2880px and 4:2:0 are both consequences of the tile pyramid existing. This
+  // variant is now only ever seen at fit or below 1:1: the tiles take over
+  // above that, so it does not need the master's resolution, and chroma
+  // subsampling — which is only visible at 1:1 — costs nothing here while
+  // saving 35% of the bytes on the one file every viewer open must wait for.
+  // 2880 covers a 1440 CSS px image on a 2x display, which is a maximised
+  // window on anything short of a 4K panel. Measured: 1.26 MB, against 1.41 MB
+  // for the 4000px 4:2:0 file this replaces.
   {
     name: "viewer",
-    longEdge: 6000,
+    longEdge: 2880,
     webpQuality: 90,
     jpegQuality: 92,
     formats: ["jpeg"],
-    chroma: "4:4:4",
+    chroma: "4:2:0",
     keepIcc: true,
   },
   {
@@ -76,9 +108,24 @@ export type VariantName = (typeof VARIANTS)[number]["name"] | "master";
 
 const frameDir = (slug: string) => path.join(MEDIA_ROOT, slug);
 
+export type TileResult = {
+  path: string;
+  extension: string;
+  tileSize: number;
+  overlap: number;
+  maxLevel: number;
+  minLevel: number;
+  width: number;
+  height: number;
+  tileCount: number;
+  bytes: number;
+};
+
 export type ProcessResult = {
   master: { width: number; height: number; bytes: number };
   generated: { variant: string; format: string; width: number; height: number }[];
+  /** null when the master is not enough bigger than the base to be worth it. */
+  tiles: TileResult | null;
 };
 
 /**
@@ -168,10 +215,152 @@ export async function processMaster(opts: {
   await db.delete(frameImages).where(eq(frameImages.frameId, frameId));
   await db.insert(frameImages).values(rows);
 
+  // The base the tile floor is measured against is the derivative that was
+  // actually written, not the configured long edge — `withoutEnlargement`
+  // means a small master produces a smaller base than requested.
+  const baseWidth =
+    generated.find((g) => g.variant === "viewer" && g.format === "jpeg")?.width ?? masterWidth;
+
+  const tiles = await generateTiles({
+    frameId,
+    slug,
+    buffer,
+    baseWidth,
+    fullWidth: masterWidth,
+    fullHeight: masterHeight,
+  });
+
+  await pruneStaleDerivatives(slug, rows.map((r) => r.path));
+
   return {
     master: { width: masterWidth, height: masterHeight, bytes: buffer.byteLength },
     generated,
+    tiles,
   };
+}
+
+/**
+ * Writes the Deep Zoom pyramid, keeping only the levels the base derivative
+ * cannot already cover.
+ *
+ * libvips emits every level from 1x1 up, and for a 21 MP master all but the
+ * deepest are redundant the moment a 2880px base exists — they cost ~2.5 MB and
+ * 44 files per frame to ship something the base image already shows. Pruning
+ * them also collapses level switching to a single transition, which is the part
+ * of a hand-rolled tile viewer most likely to flicker.
+ */
+async function generateTiles(opts: {
+  frameId: number;
+  slug: string;
+  buffer: Buffer;
+  baseWidth: number;
+  fullWidth: number;
+  fullHeight: number;
+}): Promise<TileResult | null> {
+  const { frameId, slug, buffer, baseWidth, fullWidth, fullHeight } = opts;
+
+  const dir = frameDir(slug);
+  const tilesDir = path.join(dir, "tiles_files");
+
+  await db.delete(frameTiles).where(eq(frameTiles.frameId, frameId));
+  await fs.rm(tilesDir, { recursive: true, force: true });
+  await fs.rm(path.join(dir, "tiles.dzi"), { force: true });
+
+  // Nothing above the base to serve — a small master, or one the base already
+  // reproduces pixel for pixel.
+  if (fullWidth <= baseWidth * TILE_ACTIVATION) return null;
+
+  await sharp(buffer, { limitInputPixels: false })
+    .rotate()
+    .keepIccProfile()
+    // 4:4:4 here and nowhere else: tiles are the only thing ever seen at 1:1.
+    .jpeg({ quality: 90, progressive: true, mozjpeg: true, chromaSubsampling: "4:4:4" })
+    .tile({ layout: "dz", size: TILE_SIZE, overlap: TILE_OVERLAP })
+    .toFile(path.join(dir, "tiles.dz"));
+
+  // Never read back: the client computes every URL arithmetically, so parsing
+  // it would only add a round trip and a content type to the media route.
+  await fs.rm(path.join(dir, "tiles.dzi"), { force: true });
+
+  const levels = (await fs.readdir(tilesDir, { withFileTypes: true }))
+    .filter((e) => e.isDirectory())
+    .map((e) => Number(e.name))
+    .filter((n) => Number.isInteger(n))
+    .sort((a, b) => a - b);
+
+  if (levels.length === 0) return null;
+  const maxLevel = levels[levels.length - 1];
+
+  let minLevel = maxLevel;
+  let tileCount = 0;
+  let bytes = 0;
+  let extension = "jpeg";
+
+  for (const level of levels) {
+    const { width } = levelSize(fullWidth, fullHeight, maxLevel, level);
+    const levelDir = path.join(tilesDir, String(level));
+
+    if (width <= baseWidth * TILE_ACTIVATION) {
+      await fs.rm(levelDir, { recursive: true, force: true });
+      continue;
+    }
+
+    minLevel = Math.min(minLevel, level);
+    for (const file of await fs.readdir(levelDir)) {
+      // Measured, not assumed — libvips overrides a requested suffix with the
+      // pipeline's own format, so these land as .jpeg rather than .jpg.
+      extension = path.extname(file).replace(/^\./, "") || extension;
+      tileCount += 1;
+      bytes += (await fs.stat(path.join(levelDir, file))).size;
+    }
+  }
+
+  const result: TileResult = {
+    path: path.posix.join(slug, "tiles_files"),
+    extension,
+    tileSize: TILE_SIZE,
+    overlap: TILE_OVERLAP,
+    maxLevel,
+    minLevel,
+    width: fullWidth,
+    height: fullHeight,
+    tileCount,
+    bytes,
+  };
+
+  await db.insert(frameTiles).values({ frameId, ...result });
+  return result;
+}
+
+/**
+ * Deletes derivative files in the frame's own directory that this run did not
+ * write.
+ *
+ * `frame_images` rows are replaced wholesale, but the files were not, so
+ * removing a variant left orphans on disk that the static export still copied
+ * and uploaded. Dropping `viewer.webp` left five of those, 2-3 MB each.
+ *
+ * Deliberately shallow: the master is kept whatever its extension, and
+ * `tiles_files/` is a directory this never recurses into — that pyramid is
+ * pruned by the function that writes it.
+ */
+async function pruneStaleDerivatives(slug: string, keepPaths: string[]): Promise<void> {
+  const dir = frameDir(slug);
+  const keep = new Set(keepPaths.map((p) => path.posix.basename(p)));
+
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    if (entry.name.startsWith("master.")) continue;
+    if (keep.has(entry.name)) continue;
+    await fs.rm(path.join(dir, entry.name), { force: true });
+  }
 }
 
 /** Removes a frame's whole media directory. Safe to call when nothing exists. */

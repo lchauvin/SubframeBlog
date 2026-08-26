@@ -8,6 +8,7 @@ import {
   getFrameBySlug,
   getSiteSettings,
   listPublishedSlugs,
+  mediaUrl,
   pickImage,
 } from "@/server/db/queries";
 
@@ -62,6 +63,19 @@ async function renderViewerPage({
       masterWidth={master?.width ?? largest?.width ?? 0}
       masterHeight={master?.height ?? largest?.height ?? 0}
       arcsecPerPx={frame.arcsecPerPx}
+      tiles={
+        frame.tiles
+          ? {
+              baseUrl: mediaUrl(frame.tiles.path),
+              extension: frame.tiles.extension,
+              tileSize: frame.tiles.tileSize,
+              maxLevel: frame.tiles.maxLevel,
+              minLevel: frame.tiles.minLevel,
+              width: frame.tiles.width,
+              height: frame.tiles.height,
+            }
+          : null
+      }
       annotations={frame.annotations.map((a) => ({
         id: a.id,
         label: a.label,

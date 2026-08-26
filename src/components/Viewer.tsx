@@ -4,11 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { VariantImages } from "@/server/db/queries";
+import { ViewerTiles, type TileSource } from "./ViewerTiles";
 import styles from "./Viewer.module.css";
 
 const ANNOT_STORAGE_KEY = "astroblog:annotations";
 const WHEEL_STEP = 1.12;
 const BUTTON_STEP = 1.35;
+/** How far past 1:1 the tiles let you go. Beyond this there is nothing left to
+ *  resolve; 2x is enough to inspect a star profile the way PixInsight does. */
+const OVERZOOM = 2;
+/** Must match TILE_ACTIVATION in server/media/derivatives.ts. */
+const TILE_ACTIVATION = 1.15;
 
 export type ViewerAnnotation = {
   id: number;
@@ -26,6 +32,8 @@ export type ViewerProps = {
   masterHeight: number;
   arcsecPerPx: number | null;
   annotations: ViewerAnnotation[];
+  /** null when no pyramid exists — the base image then serves every zoom. */
+  tiles: TileSource | null;
   metaLine: string;
   chipLabel: string;
   articleHref: string;
@@ -163,9 +171,13 @@ export function Viewer(props: ViewerProps) {
    * interpolation switch — is expressed against this one value.
    */
   const nativeZoom = useMemo(() => {
-    if (!source || base.w <= 0) return 1;
-    return source.width / (base.w * dpr);
-  }, [source, base.w, dpr]);
+    if (base.w <= 0) return 1;
+    // With a pyramid, 1:1 is the master's resolution — the deepest tile level —
+    // not the base derivative's, which is deliberately smaller than the master.
+    const fullWidth = props.tiles?.width ?? source?.width;
+    if (!fullWidth) return 1;
+    return fullWidth / (base.w * dpr);
+  }, [props.tiles, source, base.w, dpr]);
 
   /**
    * Never magnify past the pixels that actually exist. The 1.5 floor keeps the
@@ -173,7 +185,24 @@ export function Viewer(props: ViewerProps) {
    * native resolution (a very large window on a Retina display); the last of
    * that range is interpolated, and only there.
    */
-  const maxZoom = useMemo(() => clamp(nativeZoom, 1.5, 8), [nativeZoom]);
+  const maxZoom = useMemo(
+    () => clamp(props.tiles ? nativeZoom * OVERZOOM : nativeZoom, 1.5, 16),
+    [nativeZoom, props.tiles],
+  );
+
+  /**
+   * Tiles switch on only once the base image is meaningfully outmatched.
+   *
+   * Without the margin, a maximised window on a large display asks for a few
+   * percent more than the base holds and switches the pyramid on at fit — where
+   * the visible region is the whole image, so that is every tile of the level
+   * at once. The margin costs an imperceptible softness in those cases and
+   * saves several megabytes.
+   */
+  const tilesActive = useMemo(() => {
+    if (!props.tiles || base.w <= 0 || !source) return false;
+    return base.w * view.zoom * dpr > source.width * TILE_ACTIVATION;
+  }, [props.tiles, base.w, view.zoom, dpr, source]);
 
   const clampPan = useCallback(
     (x: number, y: number, z: number) => {
@@ -493,6 +522,19 @@ export function Viewer(props: ViewerProps) {
                 alt={props.alt}
                 draggable={false}
                 style={{ width: "100%", height: "100%" }}
+              />
+            ) : null}
+
+            {/* Between the base image and the annotations, deliberately: tiles
+                cover the photograph, markers stay on top of both. */}
+            {props.tiles && tilesActive ? (
+              <ViewerTiles
+                source={props.tiles}
+                view={view}
+                canvas={canvas}
+                base={base}
+                dpr={dpr}
+                pixelated={view.zoom > nativeZoom}
               />
             ) : null}
 
