@@ -430,7 +430,13 @@ export async function rederiveFrameAction(frameId: number): Promise<RederiveResu
   }
 
   try {
-    const result = await processMaster({ frameId, slug: frame.slug, buffer });
+    const result = await processMaster({
+      frameId,
+      slug: frame.slug,
+      buffer,
+      // The buffer *is* the stored master; never write it back over itself.
+      writeMaster: false,
+    });
     const viewer = result.generated.find((g) => g.variant === "viewer" && g.format === "jpeg");
     // Deliberately no revalidatePath here. Public frame routes are
     // force-dynamic, so there is no cache to bust — and invalidating the root

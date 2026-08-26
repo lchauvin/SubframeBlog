@@ -69,7 +69,13 @@ async function main() {
     }
 
     const started = Date.now();
-    const result = await processMaster({ frameId: frame.id, slug: frame.slug, buffer });
+    const result = await processMaster({
+      frameId: frame.id,
+      slug: frame.slug,
+      buffer,
+      // The buffer *is* the stored master; never write it back over itself.
+      writeMaster: false,
+    });
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
     const viewer = result.generated.find((g) => g.variant === "viewer" && g.format === "jpeg");

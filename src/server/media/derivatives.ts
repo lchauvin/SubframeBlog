@@ -132,13 +132,21 @@ const TRAILERS: Record<string, { bytes: Buffer; label: string }> = {
   jpeg: { bytes: Buffer.from([0xff, 0xd9]), label: "EOI" },
 };
 
+/** How far back from the end to look for the marker. */
+const TRAILER_SCAN_BYTES = 1024 * 1024;
+
 function assertComplete(buffer: Buffer, format: string | undefined): void {
   if (!format) return;
   const trailer = TRAILERS[format];
   if (!trailer) return; // TIFF and WebP have no single reliable end marker.
 
-  const tail = buffer.subarray(Math.max(0, buffer.byteLength - trailer.bytes.byteLength));
-  if (tail.equals(trailer.bytes)) return;
+  // Scanned, not compared against the final bytes: some encoders append
+  // metadata or padding after the end marker, and a file that is genuinely
+  // complete must never be rejected here. Erring toward accepting is the right
+  // direction — a false negative costs a confusing decoder error later, a false
+  // positive refuses a good master outright.
+  const from = Math.max(0, buffer.byteLength - TRAILER_SCAN_BYTES);
+  if (buffer.subarray(from).includes(trailer.bytes)) return;
 
   const mb = (buffer.byteLength / 1024 / 1024).toFixed(1);
   throw new Error(
@@ -181,6 +189,8 @@ export async function processMaster(opts: {
   slug: string;
   buffer: Buffer;
   originalName?: string;
+  /** false when `buffer` was read from the stored master — see below. */
+  writeMaster?: boolean;
 }): Promise<ProcessResult> {
   const { frameId, slug, buffer } = opts;
 
@@ -203,7 +213,16 @@ export async function processMaster(opts: {
   const masterExt =
     probe.format === "png" ? "png" : probe.format === "tiff" ? "tif" : "jpg";
   const masterRel = path.posix.join(slug, `master.${masterExt}`);
-  await fs.writeFile(path.join(MEDIA_ROOT, masterRel), buffer);
+  /**
+   * Only an upload writes the master. A re-derive reads the master off disk and
+   * hands the same bytes back, so writing them again achieves nothing and puts
+   * the one irreplaceable file in the frame directory through a write it did not
+   * need — on a full disk or a killed process, that is how you lose an original
+   * while trying to regenerate thumbnails from it.
+   */
+  if (opts.writeMaster !== false) {
+    await fs.writeFile(path.join(MEDIA_ROOT, masterRel), buffer);
+  }
 
   const rows: (typeof frameImages.$inferInsert)[] = [
     {
