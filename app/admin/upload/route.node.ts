@@ -57,6 +57,35 @@ export async function POST(request: Request) {
     );
   }
 
+  /**
+   * A truncated upload is not a small upload.
+   *
+   * `file.size` is measured from what arrived, so a body cut short by a proxy
+   * reports its truncated length and sails through every size check above. The
+   * browser sent the real length in a field written before the file, so the two
+   * disagreeing is proof the body was cut in transit — and it catches TIFF and
+   * WebP, which have no end marker for `processMaster` to check.
+   */
+  const declared = Number(form.get("declaredSize"));
+  if (Number.isFinite(declared) && declared > 0) {
+    const received = file.size;
+    // A few bytes of slack: multipart re-encoding is not required to be exact.
+    if (received < declared - 1024) {
+      const fmt = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MB`;
+      return Response.json(
+        {
+          error:
+            `Only ${fmt(received)} of a ${fmt(declared)} file arrived, so the upload was cut ` +
+            `short in transit rather than rejected. Nothing was saved. This is a request-size ` +
+            `limit between the browser and this app, not a limit in the app itself — its own ` +
+            `ceiling is 120MB. Re-exporting the master as JPEG or TIFF instead of PNG will ` +
+            `usually put it under the limit.`,
+        },
+        { status: 413 },
+      );
+    }
+  }
+
   const frame = await db.select().from(frames).where(eq(frames.id, frameId)).get();
   if (!frame) return Response.json({ error: "That frame no longer exists." }, { status: 404 });
 

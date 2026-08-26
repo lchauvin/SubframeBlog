@@ -221,7 +221,27 @@ export async function processMaster(opts: {
    * while trying to regenerate thumbnails from it.
    */
   if (opts.writeMaster !== false) {
-    await fs.writeFile(path.join(MEDIA_ROOT, masterRel), buffer);
+    /**
+     * Written to a temporary name and renamed into place, because `writeFile`
+     * of a 40MB buffer is not instant and is not atomic: anything reading
+     * `master.png` while it is in flight gets however much has landed so far.
+     * A rebuild started during an upload of the same frame does exactly that,
+     * and a partial read looks precisely like a truncated file — valid header,
+     * missing end marker — which is a confusing thing to be told about a file
+     * that is perfectly fine a second later.
+     *
+     * `rename` within the same directory is atomic, so a reader sees either the
+     * previous master or the new one, never half of either.
+     */
+    const finalPath = path.join(MEDIA_ROOT, masterRel);
+    const tempPath = `${finalPath}.uploading-${process.pid}-${frameId}`;
+    try {
+      await fs.writeFile(tempPath, buffer);
+      await fs.rename(tempPath, finalPath);
+    } catch (error) {
+      await fs.rm(tempPath, { force: true });
+      throw error;
+    }
   }
 
   const rows: (typeof frameImages.$inferInsert)[] = [
@@ -423,6 +443,9 @@ async function pruneStaleDerivatives(slug: string, keepPaths: string[]): Promise
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     if (entry.name.startsWith("master.")) continue;
+    // A concurrent upload's half-written master, which is about to be renamed
+    // into place by whoever owns it.
+    if (entry.name.includes(".uploading-")) continue;
     if (keep.has(entry.name)) continue;
     await fs.rm(path.join(dir, entry.name), { force: true });
   }

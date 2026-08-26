@@ -47,6 +47,15 @@ export function ImageUploader({
     try {
       const body = new FormData();
       body.set("frameId", String(frameId));
+      /**
+       * The size the browser believes it is sending, so the server can tell a
+       * short upload from a short file.
+       *
+       * Set *before* the file, deliberately: multipart parts arrive in append
+       * order, so a field written after the file is the first thing lost when
+       * the body is truncated — which is exactly the case it exists to detect.
+       */
+      body.set("declaredSize", String(file.size));
       body.set("file", file);
 
       const res = await fetch("/admin/upload", { method: "POST", body });
