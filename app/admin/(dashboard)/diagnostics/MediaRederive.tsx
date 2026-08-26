@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { rederiveFrameAction, type RederiveResult } from "../../actions";
@@ -26,40 +26,48 @@ export function MediaRederive({ frames }: Props) {
   const [stopRequested, setStopRequested] = useState(false);
   const [current, setCurrent] = useState<string | null>(null);
   const [results, setResults] = useState<RederiveResult[]>([]);
+  /** Total for *this* run. `stale` shrinks as frames are fixed, so reading it
+   *  live made the progress label count against a moving target. */
+  const [total, setTotal] = useState(0);
+  /** A ref, not state: React may not run a state updater synchronously, so
+   *  reading the stop flag back through `setStopRequested` was unreliable. */
+  const stopRef = useRef(false);
 
   const rebuildable = frames.filter((f) => f.hasMaster);
   const stale = rebuildable.filter((f) => f.stale);
   const missingMaster = frames.filter((f) => !f.hasMaster);
 
   async function run(targets: MediaStatus[]) {
-    if (targets.length === 0) return;
-    setRunning(true);
+    if (targets.length === 0 || running) return;
+    stopRef.current = false;
     setStopRequested(false);
+    setRunning(true);
     setResults([]);
+    setTotal(targets.length);
 
-    let stopped = false;
-    for (const frame of targets) {
-      // Read through a setter so the flag set by a click mid-run is seen.
-      let shouldStop = false;
-      setStopRequested((v) => {
-        shouldStop = v;
-        return v;
-      });
-      if (shouldStop) {
-        stopped = true;
-        break;
+    try {
+      for (const frame of targets) {
+        if (stopRef.current) break;
+        setCurrent(frame.slug);
+        const result = await rederiveFrameAction(frame.frameId);
+        setResults((prev) => [...prev, result]);
       }
-
-      setCurrent(frame.slug);
-      const result = await rederiveFrameAction(frame.frameId);
-      setResults((prev) => [...prev, result]);
+    } finally {
+      // In a finally so a thrown action cannot strand the UI mid-run with
+      // every control disabled.
+      setCurrent(null);
+      setRunning(false);
+      setStopRequested(false);
+      stopRef.current = false;
+      // Once, at the end. Refreshing per frame re-rendered this component's
+      // own page underneath the loop.
+      router.refresh();
     }
+  }
 
-    setCurrent(null);
-    setRunning(false);
-    if (stopped) setStopRequested(false);
-    // Pull fresh status so the staleness list reflects what just happened.
-    router.refresh();
+  function requestStop() {
+    stopRef.current = true;
+    setStopRequested(true);
   }
 
   const failed = results.filter((r) => !r.ok).length;
@@ -119,7 +127,7 @@ export function MediaRederive({ frames }: Props) {
           onClick={() => run(stale)}
         >
           {running
-            ? `Rebuilding ${results.length + 1} of ${stale.length}…`
+            ? `Rebuilding ${Math.min(results.length + 1, total)} of ${total}…`
             : `Rebuild ${stale.length} stale frame${stale.length === 1 ? "" : "s"}`}
         </button>
         <button
@@ -134,7 +142,7 @@ export function MediaRederive({ frames }: Props) {
           <button
             type="button"
             className={styles.button}
-            onClick={() => setStopRequested(true)}
+            onClick={requestStop}
             disabled={stopRequested}
           >
             {stopRequested ? "Stopping after this frame…" : "Stop"}

@@ -432,7 +432,11 @@ export async function rederiveFrameAction(frameId: number): Promise<RederiveResu
   try {
     const result = await processMaster({ frameId, slug: frame.slug, buffer });
     const viewer = result.generated.find((g) => g.variant === "viewer" && g.format === "jpeg");
-    revalidatePath("/", "layout");
+    // Deliberately no revalidatePath here. Public frame routes are
+    // force-dynamic, so there is no cache to bust — and invalidating the root
+    // layout after every frame re-rendered the admin page underneath the
+    // client loop driving the rebuild, which stopped it after one frame. The
+    // caller refreshes once, when the whole run is finished.
     return {
       slug: frame.slug,
       ok: true,
