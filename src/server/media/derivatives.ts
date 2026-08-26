@@ -108,6 +108,48 @@ export type VariantName = (typeof VARIANTS)[number]["name"] | "master";
 
 const frameDir = (slug: string) => path.join(MEDIA_ROOT, slug);
 
+/**
+ * Trailing markers that say a file is complete.
+ *
+ * A truncated image usually keeps a valid header — dimensions and format read
+ * back correctly — and only fails deep in the decoder, as `vipspng: libpng read
+ * error` or the JPEG equivalent. That message names the library rather than the
+ * problem, and it reaches the admin verbatim, so the one thing worth knowing
+ * (the file arrived incomplete) is the one thing it does not say.
+ *
+ * Checking the trailer is cheap and catches exactly that case. A cut-short
+ * upload is by far the likeliest way to get a header-valid, body-invalid file
+ * here: masters run to tens of megabytes and any proxy or host body cap in
+ * front of the app truncates rather than refuses.
+ */
+const TRAILERS: Record<string, { bytes: Buffer; label: string }> = {
+  // Zero-length IEND chunk plus its constant CRC.
+  png: {
+    bytes: Buffer.from([0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]),
+    label: "IEND",
+  },
+  // End of image.
+  jpeg: { bytes: Buffer.from([0xff, 0xd9]), label: "EOI" },
+};
+
+function assertComplete(buffer: Buffer, format: string | undefined): void {
+  if (!format) return;
+  const trailer = TRAILERS[format];
+  if (!trailer) return; // TIFF and WebP have no single reliable end marker.
+
+  const tail = buffer.subarray(Math.max(0, buffer.byteLength - trailer.bytes.byteLength));
+  if (tail.equals(trailer.bytes)) return;
+
+  const mb = (buffer.byteLength / 1024 / 1024).toFixed(1);
+  throw new Error(
+    `This ${format.toUpperCase()} is incomplete — it has no ${trailer.label} marker at the end, ` +
+      `so the last of the file is missing (received ${mb} MB). The image header is intact, which ` +
+      `is why it looks like a valid file until the decoder reaches the end. This almost always ` +
+      `means the upload was cut short by a request-size limit between the browser and the app ` +
+      `rather than a damaged original — check the original opens elsewhere, then re-upload it.`,
+  );
+}
+
 export type TileResult = {
   path: string;
   extension: string;
@@ -146,6 +188,10 @@ export async function processMaster(opts: {
   if (!probe.width || !probe.height) {
     throw new Error("Could not read image dimensions — is this a valid image file?");
   }
+  // Before any of the work: a header-valid but truncated file would otherwise
+  // get through the probe and fail several seconds later inside libpng or
+  // libjpeg, with a message that names the library instead of the problem.
+  assertComplete(buffer, probe.format);
   // EXIF orientations 5-8 mean the stored buffer is rotated relative to display.
   const swapped = (probe.orientation ?? 1) >= 5;
   const masterWidth = swapped ? probe.height : probe.width;
