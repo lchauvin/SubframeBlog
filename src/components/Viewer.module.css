@@ -107,6 +107,14 @@
   border-color: var(--color-accent-600);
 }
 
+/* Lit when the view is at exactly 1:1, so the state is readable without
+   parsing the percentage. Outline rather than fill: unlike Annotations this is
+   a position, not a mode that stays on. */
+.atNative {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 /* ---- Canvas -------------------------------------------------------------- */
 
 .canvas {
@@ -145,6 +153,11 @@
   display: block;
   pointer-events: none;
   -webkit-user-drag: none;
+}
+
+/* Applied only above 1:1 — see the note at the <img> in Viewer.tsx. */
+.imagePixelated {
+  image-rendering: pixelated;
 }
 
 .annotationLayer {

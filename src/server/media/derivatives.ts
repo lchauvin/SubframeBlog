@@ -13,13 +13,63 @@ import { MEDIA_ROOT } from "../paths";
  * AVIF is deliberately absent: encoding a ~6000px master to AVIF costs far more
  * time than it saves bytes over WebP at these sizes.
  */
+/**
+ * `chroma` and `keepIcc` are set per variant rather than globally.
+ *
+ * sharp's JPEG default is 4:2:0 — colour stored at half resolution on each
+ * axis. On a normal photograph that is invisible; on these it is not. Small
+ * coloured stars and Ha/OIII boundaries are exactly the high-frequency chroma
+ * subsampling discards, and it shows as mushy star colour and haloing once you
+ * zoom. The masters are 4:4:4, so 4:2:0 here was throwing away colour the
+ * source actually had.
+ *
+ * It costs roughly 15% more bytes, which is worth it for `viewer` (zoomed to
+ * 1:1) and `download` (opened in someone else's editor), and is not worth it
+ * for `article` and `thumb`, which are never seen above a few hundred pixels.
+ */
 export const VARIANTS = [
-  { name: "viewer", longEdge: 6000, webpQuality: 90, jpegQuality: 92, formats: ["webp", "jpeg"] },
-  { name: "article", longEdge: 1600, webpQuality: 84, jpegQuality: 86, formats: ["webp", "jpeg"] },
-  { name: "thumb", longEdge: 600, webpQuality: 86, jpegQuality: 88, formats: ["webp", "jpeg"] },
+  // JPEG only, deliberately. Lossy WebP is internally 4:2:0 with no way to opt
+  // out, so serving it here would undo the chroma fix above — and the viewer
+  // renders a bare <img> off the JPEG, so the WebP was never served anyway. It
+  // was 3 MB per frame of export weight for nothing.
+  {
+    name: "viewer",
+    longEdge: 6000,
+    webpQuality: 90,
+    jpegQuality: 92,
+    formats: ["jpeg"],
+    chroma: "4:4:4",
+    keepIcc: true,
+  },
+  {
+    name: "article",
+    longEdge: 1600,
+    webpQuality: 84,
+    jpegQuality: 86,
+    formats: ["webp", "jpeg"],
+    chroma: "4:2:0",
+    keepIcc: false,
+  },
+  {
+    name: "thumb",
+    longEdge: 600,
+    webpQuality: 86,
+    jpegQuality: 88,
+    formats: ["webp", "jpeg"],
+    chroma: "4:2:0",
+    keepIcc: false,
+  },
   // Backs the viewer's "Download 2048px" chip. JPEG only — it is a file people
   // save and open elsewhere, not something the page renders.
-  { name: "download", longEdge: 2048, webpQuality: 84, jpegQuality: 90, formats: ["jpeg"] },
+  {
+    name: "download",
+    longEdge: 2048,
+    webpQuality: 84,
+    jpegQuality: 90,
+    formats: ["jpeg"],
+    chroma: "4:4:4",
+    keepIcc: true,
+  },
 ] as const;
 
 export type VariantName = (typeof VARIANTS)[number]["name"] | "master";
@@ -77,9 +127,12 @@ export async function processMaster(opts: {
 
   for (const v of VARIANTS) {
     // fit:inside with equal bounds caps the long edge whatever the orientation.
-    const base = sharp(buffer, { limitInputPixels: false })
+    let base = sharp(buffer, { limitInputPixels: false })
       .rotate()
       .resize({ width: v.longEdge, height: v.longEdge, fit: "inside", withoutEnlargement: true });
+
+    // sharp strips metadata by default, which drops the master's ICC profile.
+    if (v.keepIcc) base = base.keepIccProfile();
 
     const outputs = [
       { format: "webp", ext: "webp", pipeline: () => base.clone().webp({ quality: v.webpQuality }) },
@@ -87,7 +140,12 @@ export async function processMaster(opts: {
         format: "jpeg",
         ext: "jpg",
         pipeline: () =>
-          base.clone().jpeg({ quality: v.jpegQuality, progressive: true, mozjpeg: true }),
+          base.clone().jpeg({
+            quality: v.jpegQuality,
+            progressive: true,
+            mozjpeg: true,
+            chromaSubsampling: v.chroma,
+          }),
       },
     ].filter((o) => (v.formats as readonly string[]).includes(o.format));
 

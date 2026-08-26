@@ -51,6 +51,8 @@ export function Viewer(props: ViewerProps) {
   const [dragging, setDragging] = useState(false);
   const [annotationsOn, setAnnotationsOn] = useState(true);
   const [interacting, setInteracting] = useState(false);
+  /** 1 during SSR and the first paint — `window` does not exist there. */
+  const [dpr, setDpr] = useState(1);
 
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
@@ -105,6 +107,22 @@ export function Viewer(props: ViewerProps) {
     return () => observer.disconnect();
   }, []);
 
+  /**
+   * Device pixel ratio is not a constant: dragging the window from a Retina
+   * panel to a 1x monitor changes it live, and with it the zoom at which the
+   * image is actually 1:1. There is no `devicepixelratio` event, so the idiom
+   * is a media query pinned to the *current* ratio — it stops matching the
+   * moment the ratio changes. Re-armed on every change, hence `[dpr]`; React
+   * bails out when the value is unchanged, so this cannot loop.
+   */
+  useEffect(() => {
+    const read = () => setDpr(window.devicePixelRatio || 1);
+    read();
+    const query = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    query.addEventListener("change", read);
+    return () => query.removeEventListener("change", read);
+  }, [dpr]);
+
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(ANNOT_STORAGE_KEY);
@@ -133,11 +151,29 @@ export function Viewer(props: ViewerProps) {
     return { w, h: w / aspect };
   }, [canvas.w, canvas.h, aspect]);
 
-  // Never magnify past the pixels that actually exist in the derivative.
-  const maxZoom = useMemo(() => {
-    if (!source || base.w <= 0) return 8;
-    return clamp(source.width / base.w, 1.5, 8);
-  }, [source, base.w]);
+  /**
+   * The zoom at which one image pixel covers exactly one *device* pixel.
+   *
+   * `base.w` is in CSS pixels, so dividing by it alone answers the wrong
+   * question: on a devicePixelRatio-2 display, laying the image out at its own
+   * pixel count in CSS px asks the browser to paint it across twice as many
+   * device pixels, and the whole top of the zoom range is interpolation with no
+   * new information in it. That is what made zooming look like zooming into a
+   * JPEG. Everything below — the ceiling, the readout, the 1:1 control and the
+   * interpolation switch — is expressed against this one value.
+   */
+  const nativeZoom = useMemo(() => {
+    if (!source || base.w <= 0) return 1;
+    return source.width / (base.w * dpr);
+  }, [source, base.w, dpr]);
+
+  /**
+   * Never magnify past the pixels that actually exist. The 1.5 floor keeps the
+   * zoom control usable in the corner case where the fit view already exceeds
+   * native resolution (a very large window on a Retina display); the last of
+   * that range is interpolated, and only there.
+   */
+  const maxZoom = useMemo(() => clamp(nativeZoom, 1.5, 8), [nativeZoom]);
 
   const clampPan = useCallback(
     (x: number, y: number, z: number) => {
@@ -322,16 +358,33 @@ export function Viewer(props: ViewerProps) {
     }));
   };
 
-  const megapixels = (props.masterWidth * props.masterHeight) / 1_000_000;
+  /**
+   * Report the image that is actually on screen, not the master. Reading the
+   * master's numbers while serving a smaller derivative overstated the frame by
+   * a factor of two in megapixels — and the readout must not depend on the two
+   * happening to match. When the master genuinely is larger, it gets its own
+   * clause rather than borrowing the headline.
+   */
+  const shownWidth = source?.width ?? props.masterWidth;
+  const shownHeight = source?.height ?? props.masterHeight;
+  const megapixels = (shownWidth * shownHeight) / 1_000_000;
+  const masterIsLarger = props.masterWidth > shownWidth * 1.02;
   const dimensionLine = [
-    props.masterWidth && props.masterHeight
-      ? `${props.masterWidth} × ${props.masterHeight}`
-      : null,
+    shownWidth && shownHeight ? `${shownWidth} × ${shownHeight}` : null,
     props.arcsecPerPx ? `${props.arcsecPerPx.toFixed(2)}″/px` : null,
     megapixels > 0 ? `${megapixels.toFixed(1)} MP` : null,
+    masterIsLarger ? `master ${props.masterWidth} × ${props.masterHeight}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
+
+  /**
+   * Percentages are native-relative, not fit-relative: an astrophotographer
+   * reads "100%" as 1:1, the way PixInsight and every other tool in the chain
+   * labels it. Fit therefore reads as something like 38%.
+   */
+  const displayPct = Math.round((view.zoom / nativeZoom) * 100);
+  const atNative = view.zoom >= nativeZoom - 0.001;
 
   const ready = base.w > 0 && source !== null;
 
@@ -356,8 +409,11 @@ export function Viewer(props: ViewerProps) {
           >
             –
           </button>
+          {/* Until the canvas is measured `nativeZoom` is a placeholder 1, which
+              would render as "100%" — the one value that must never be wrong,
+              since it is the claim that this is 1:1. */}
           <span className={`${styles.control} ${styles.readout}`} aria-live="polite">
-            {Math.round(view.zoom * 100)}%
+            {ready ? `${displayPct}%` : "—"}
           </span>
           <button
             type="button"
@@ -374,6 +430,15 @@ export function Viewer(props: ViewerProps) {
             onClick={reset}
           >
             Fit
+          </button>
+          <button
+            type="button"
+            className={`${styles.control} ${styles.wordButton} ${atNative ? styles.atNative : ""}`}
+            onClick={() => zoomToAbsolute(nativeZoom)}
+            aria-pressed={atNative}
+            title="One image pixel per screen pixel"
+          >
+            1:1
           </button>
           <button
             type="button"
@@ -419,7 +484,11 @@ export function Viewer(props: ViewerProps) {
           >
             {source ? (
               <img
-                className={styles.image}
+                /* Past 1:1 there is no more information to interpolate, so
+                   smoothing only blurs. Showing the pixels as pixels is what
+                   PixInsight does and what the eye reads as "sharp". Below 1:1
+                   smoothing is correct and stays on. */
+                className={`${styles.image} ${view.zoom > nativeZoom ? styles.imagePixelated : ""}`}
                 src={source.src}
                 alt={props.alt}
                 draggable={false}
