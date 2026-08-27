@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnySQLiteColumn,
   index,
   integer,
   real,
@@ -54,6 +55,28 @@ export const frames = sqliteTable(
     sensorLabel: text("sensor_label").notNull().default(""),
     arcsecPerPx: real("arcsec_per_px"),
 
+    /**
+     * The frame this one is a revision of — another processing of the same
+     * target. Null for the first frame of a target.
+     *
+     * `set null` rather than cascade: deleting a frame must orphan its
+     * revisions, never take them with it.
+     */
+    parentFrameId: integer("parent_frame_id").references((): AnySQLiteColumn => frames.id, {
+      onDelete: "set null",
+    }),
+    /**
+     * Overrides the derived relationship kind. Empty means "derive it", which
+     * is the normal case.
+     *
+     * The kind is deliberately *not* stored when derived: it is a function of
+     * gear, filters, nights, palette and plate scale, all of which are editable,
+     * so a stored copy goes stale the first time any of them changes. This
+     * column exists only for what the diff cannot see — mosaic panels, a heavy
+     * re-crop, a reprocess that happened to gain a night.
+     */
+    revisionKind: text("revision_kind").notNull().default(""),
+
     published: integer("published", { mode: "boolean" }).notNull().default(false),
     /** Lower numbers appear first in the admin list and the public log. */
     sortIndex: integer("sort_index").notNull().default(0),
@@ -64,6 +87,7 @@ export const frames = sqliteTable(
   (t) => [
     uniqueIndex("frames_slug_idx").on(t.slug),
     index("frames_captured_on_idx").on(t.capturedOn),
+    index("frames_parent_idx").on(t.parentFrameId),
   ],
 );
 

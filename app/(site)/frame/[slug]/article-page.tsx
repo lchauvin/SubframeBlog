@@ -16,9 +16,11 @@ import {
 } from "@/lib/format";
 import { shareMetadata, siteOrigin } from "@/lib/share-meta";
 import { getCurrentAdmin } from "@/server/auth/session";
+import { KIND_LABEL } from "@/server/revisions";
 import {
   getAdjacentFrames,
   getFrameBySlug,
+  getRevisionChain,
   getGearItems,
   getSiteSettings,
   listPublishedSlugs,
@@ -86,7 +88,11 @@ async function renderArticlePage({
     if (!(await getCurrentAdmin())) notFound();
   }
 
-  const [adjacent, siteGear] = await Promise.all([getAdjacentFrames(frame.id), getGearItems()]);
+  const [adjacent, siteGear, chain] = await Promise.all([
+    getAdjacentFrames(frame.id),
+    getGearItems(),
+    getRevisionChain(frame.id),
+  ]);
   const gear = publicGearRows(frame.gear, siteGear);
 
   const bars = buildFilterBars(frame.filters);
@@ -212,6 +218,51 @@ async function renderArticlePage({
           ) : null}
         </div>
       </div>
+
+      {chain ? (
+        <section className={styles.revisions}>
+          <div className={styles.adjacentLabel}>
+            {chain.members.length} processings of {frame.catalogId}
+          </div>
+          {/* Oldest first, each hop labelled against the frame directly before
+              it. Nothing transitive is claimed: in an A → B → C chain, B → C
+              says nothing about what C is to A. */}
+          <ol className={styles.revisionList}>
+            {chain.members.map((member, i) => {
+              const verdict = chain.verdicts[i];
+              const current = member.id === frame.id;
+              return (
+                <li
+                  key={member.id}
+                  className={`${styles.revisionItem} ${current ? styles.revisionCurrent : ""}`}
+                >
+                  {verdict ? (
+                    <span className={styles.revisionKind}>
+                      {KIND_LABEL[verdict.kind]}
+                      {verdict.overridden ? "*" : ""}
+                    </span>
+                  ) : (
+                    <span className={styles.revisionKind}>First</span>
+                  )}
+                  {current ? (
+                    <span className={styles.revisionSlug}>
+                      {formatMonthYear(member.capturedOn)} · {formatMinutes(member.totalIntegrationMinutes)}
+                      <span className={styles.revisionHere}> — you are here</span>
+                    </span>
+                  ) : (
+                    <Link href={`/frame/${member.slug}`} className={styles.revisionSlug}>
+                      {formatMonthYear(member.capturedOn)} · {formatMinutes(member.totalIntegrationMinutes)}
+                    </Link>
+                  )}
+                  {verdict && verdict.changes.length > 0 ? (
+                    <span className={styles.revisionChanges}>{verdict.changes.join(" · ")}</span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
 
       {adjacent.length > 0 ? (
         <section className={styles.adjacent}>

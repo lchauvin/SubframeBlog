@@ -166,3 +166,9 @@
     gap: 18px;
   }
 }
+
+/* The "3 versions · 20h total" marker on a collapsed log row. Quiet by
+   design: it qualifies the date and palette rather than competing with them. */
+.revisionCount {
+  color: var(--color-accent);
+}

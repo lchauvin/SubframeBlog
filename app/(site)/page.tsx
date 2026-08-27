@@ -4,11 +4,12 @@ import Link from "next/link";
 import { FrameImage } from "@/components/FrameImage";
 import { RegistrationMarks } from "@/components/RegistrationMarks";
 import { DEFAULT_SITE_SETTINGS } from "@/lib/defaults";
-import { formatMonthYear } from "@/lib/format";
+import { formatMinutes, formatMonthYear } from "@/lib/format";
 import { shareMetadata, siteOrigin } from "@/lib/share-meta";
 import {
   getLogSummary,
   getSiteSettings,
+  listPublishedFrameGroups,
   listPublishedFrames,
   pickImage,
 } from "@/server/db/queries";
@@ -35,11 +36,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function LogPage() {
   await useRequestTimeRendering();
-  const [frames, summary, settings] = await Promise.all([
-    listPublishedFrames(),
+  const [groups, summary, settings] = await Promise.all([
+    listPublishedFrameGroups(),
     getLogSummary(),
     getSiteSettings(),
   ]);
+  const frames = groups.map((g) => g.head);
 
   const chrome = settings ?? DEFAULT_SITE_SETTINGS;
 
@@ -72,7 +74,7 @@ export default async function LogPage() {
         </div>
       ) : null}
 
-      {frames.map((frame) => (
+      {groups.map(({ head: frame, members, totalMinutes }) => (
         <Link key={frame.id} href={`/frame/${frame.slug}`} className={styles.row}>
           <div className={styles.frame}>
             <RegistrationMarks />
@@ -87,6 +89,16 @@ export default async function LogPage() {
           <div className={styles.meta}>
             <div className={styles.kicker}>
               {formatMonthYear(frame.capturedOn)} · {frame.palette}
+              {/* Revisions that supersede each other are one entry, so the row
+                  has to account for the ones it is standing in for — otherwise
+                  a target with 20h across three processings reads as whatever
+                  the newest one happens to carry. */}
+              {members.length > 1 ? (
+                <span className={styles.revisionCount}>
+                  {" · "}
+                  {members.length} versions · {formatMinutes(totalMinutes)} total
+                </span>
+              ) : null}
             </div>
             <h2 className={styles.targetId}>{frame.catalogId}</h2>
             <div className={styles.commonName}>{frame.commonName}</div>

@@ -23,7 +23,7 @@ import {
   siteSettings,
   siteStats,
 } from "@/server/db/schema";
-import { slugExists } from "@/server/db/queries";
+import { nextRevisionSlug, slugExists } from "@/server/db/queries";
 import {
   deleteFrameMedia,
   processMaster,
@@ -67,6 +67,8 @@ const frameSchema = z.object({
   slug: text(80),
   frameNumber: text(20),
   revision: text(10),
+  /** "" derives the relationship from the data; see src/server/revisions.ts. */
+  revisionKind: z.enum(["", "reprocess", "more-data", "new-palette", "new-rig"]).optional(),
   capturedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Captured date must be YYYY-MM-DD"),
   palette: text(20),
   bandwidth: text(20),
@@ -120,10 +122,30 @@ export async function saveFrame(_prev: FormState, formData: FormData): Promise<F
     return { error: "Could not read the form data." };
   }
 
-  const slug = slugify(data.slug) || frameSlug(data.catalogId, data.revision);
+  const typedSlug = slugify(data.slug);
+  let slug = typedSlug || frameSlug(data.catalogId, data.revision);
   if (!slug) return { error: "Could not derive a slug — give the frame a catalog ID." };
+
+  /**
+   * A colliding slug on a *new* frame means another processing of this target
+   * already exists, which is normal rather than an error: the same object
+   * reshot or reprocessed is the whole point of revisions. It gets the next
+   * free letter and a link to the frame it revises.
+   *
+   * A slug the author typed by hand is still refused — they asked for that
+   * exact one, and silently moving it would be worse than saying no.
+   */
+  let autoParentId: number | null = null;
   if (await slugExists(slug, id ?? undefined)) {
-    return { error: `The slug "${slug}" is already used by another frame.` };
+    if (typedSlug || id) {
+      return { error: `The slug "${slug}" is already used by another frame.` };
+    }
+    const next = await nextRevisionSlug(slug);
+    slug = next.slug;
+    autoParentId = next.parentId;
+    if (await slugExists(slug, undefined)) {
+      return { error: `Could not find a free slug for "${data.catalogId}".` };
+    }
   }
 
   const values = {
@@ -132,6 +154,7 @@ export async function saveFrame(_prev: FormState, formData: FormData): Promise<F
     commonName: data.commonName,
     frameNumber: data.frameNumber,
     revision: data.revision,
+    revisionKind: data.revisionKind ?? "",
     capturedOn: data.capturedOn,
     palette: data.palette,
     bandwidth: data.bandwidth,
@@ -188,6 +211,9 @@ export async function saveFrame(_prev: FormState, formData: FormData): Promise<F
       .insert(frames)
       .values({
         ...values,
+        // Only ever set here, on create. An edit must not silently re-parent a
+        // frame someone has already placed in a chain by hand.
+        parentFrameId: autoParentId,
         sortIndex: top ? top.sortIndex - 1 : 0,
         createdAt: new Date(),
       })

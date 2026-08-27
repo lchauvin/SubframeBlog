@@ -64,6 +64,13 @@
       "when": 1787717556558,
       "tag": "0008_fuzzy_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1787797167623,
+      "tag": "0009_fair_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

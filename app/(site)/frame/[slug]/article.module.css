@@ -317,3 +317,76 @@
     display: none;
   }
 }
+
+/* ---- Revision rail ------------------------------------------------------- */
+
+/* Every processing of this target, oldest first. Sits above "Adjacent frames"
+   because it is about *this* object rather than what happens to be near it in
+   the log. */
+.revisions {
+  margin-top: var(--space-8);
+}
+
+.revisionList {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+}
+
+.revisionItem {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  font-size: 12px;
+}
+
+.revisionCurrent {
+  background: var(--color-surface-2, var(--color-surface));
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
+.revisionKind {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.revisionSlug {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.revisionSlug:hover {
+  color: var(--color-accent);
+}
+
+.revisionHere {
+  color: var(--color-text-dim);
+}
+
+.revisionChanges {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--color-accent);
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .revisionItem {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+  .revisionChanges {
+    text-align: left;
+  }
+}

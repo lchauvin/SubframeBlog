@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray, like, or } from "drizzle-orm";
 
 import { formatMonthYear } from "@/lib/format";
 import type { SearchDoc } from "@/lib/search";
@@ -19,6 +19,14 @@ import {
   siteStats,
   type Frame,
 } from "./schema";
+
+import {
+  classifyRevision,
+  groupChain,
+  opticalGearOf,
+  type RevisionInput,
+  type RevisionVerdict,
+} from "../revisions";
 
 export type ImageRef = { src: string; width: number; height: number };
 /** Both encodings of one derivative, so the markup can offer WebP with a JPEG fallback. */
@@ -340,4 +348,188 @@ export async function slugExists(slug: string, exceptId?: number): Promise<boole
     .where(eq(frames.slug, slug))
     .get();
   return Boolean(row) && row!.id !== exceptId;
+}
+
+/** A frame plus everything `classifyRevision` needs to judge it. */
+async function revisionInputsFor(frameIds: number[]): Promise<Map<number, RevisionInput>> {
+  const map = new Map<number, RevisionInput>();
+  if (frameIds.length === 0) return map;
+
+  const [frameRows, gearRows, filterRows, nightRows, solveRows] = await Promise.all([
+    db.select().from(frames).where(inArray(frames.id, frameIds)),
+    db.select().from(frameGear).where(inArray(frameGear.frameId, frameIds)),
+    db.select().from(frameFilters).where(inArray(frameFilters.frameId, frameIds)),
+    db.select().from(nights).where(inArray(nights.frameId, frameIds)),
+    db.select().from(plateSolves).where(inArray(plateSolves.frameId, frameIds)),
+  ]);
+
+  for (const f of frameRows) {
+    const solve = solveRows.find((s) => s.frameId === f.id && s.status === "solved");
+    map.set(f.id, {
+      slug: f.slug,
+      capturedOn: f.capturedOn,
+      palette: f.palette,
+      bandwidth: f.bandwidth,
+      totalIntegrationMinutes: f.totalIntegrationMinutes,
+      // The solver's own scale, never `frames.arcsecPerPx`, which is a
+      // hand-entered display chip and does not reconcile with the solve.
+      pixScale: solve?.pixScale ?? null,
+      opticalGear: opticalGearOf(gearRows.filter((g) => g.frameId === f.id)),
+      filters: filterRows.filter((r) => r.frameId === f.id),
+      nightCount: nightRows.filter((n) => n.frameId === f.id).length,
+      revisionKind: f.revisionKind,
+    });
+  }
+  return map;
+}
+
+export type FrameGroup = {
+  head: FrameListItem;
+  members: FrameListItem[];
+  verdicts: (RevisionVerdict | null)[];
+  /** Summed across the group, so a collapsed row can show the real total. */
+  totalMinutes: number;
+};
+
+/**
+ * The public log, with revisions of one target folded into a single entry.
+ *
+ * Frames link to the processing they revise through `parentFrameId`; a chain is
+ * every frame on one of those links, oldest first. `groupChain` then splits a
+ * chain wherever a hop only *accompanies* its parent — a different rig or a
+ * different palette is another photograph of the target, not a replacement for
+ * the one before it, so both keep their row.
+ *
+ * Group order follows the head frame's position in the existing gallery order,
+ * so `sortIndex` keeps working untouched.
+ */
+export async function listPublishedFrameGroups(): Promise<FrameGroup[]> {
+  const rows = await listPublishedFrames();
+  const inputs = await revisionInputsFor(rows.map((r) => r.id));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  // Chain roots are frames whose parent is absent or unpublished — an
+  // unpublished parent must not drag its published child out of the log.
+  const children = new Map<number, FrameListItem[]>();
+  const roots: FrameListItem[] = [];
+  for (const row of rows) {
+    const parent = row.parentFrameId != null ? byId.get(row.parentFrameId) : undefined;
+    if (!parent) roots.push(row);
+    else children.set(parent.id, [...(children.get(parent.id) ?? []), row]);
+  }
+
+  const order = new Map(rows.map((r, i) => [r.id, i]));
+  const groups: FrameGroup[] = [];
+
+  for (const root of roots) {
+    // Walk the chain oldest first. Where a frame has several children — the
+    // same processing revised twice — each branch is its own chain.
+    const walk = (node: FrameListItem, chain: FrameListItem[]) => {
+      const next = [...chain, node];
+      const kids = (children.get(node.id) ?? []).sort((a, b) =>
+        a.capturedOn < b.capturedOn ? -1 : a.capturedOn > b.capturedOn ? 1 : a.id - b.id,
+      );
+      if (kids.length === 0) {
+        for (const g of groupChain(next, (f) => inputs.get(f.id)!)) {
+          groups.push({
+            head: g.head,
+            members: g.members,
+            verdicts: g.verdicts,
+            totalMinutes: g.members.reduce((s, m) => s + m.totalIntegrationMinutes, 0),
+          });
+        }
+        return;
+      }
+      for (const kid of kids) walk(kid, next);
+    };
+    walk(root, []);
+  }
+
+  // De-duplicate: branching chains share their trunk, so a frame can land in
+  // more than one group. The group whose head it is wins; otherwise the first.
+  const claimed = new Set<number>();
+  const unique: FrameGroup[] = [];
+  for (const g of groups.sort((a, b) => (order.get(a.head.id) ?? 0) - (order.get(b.head.id) ?? 0))) {
+    if (claimed.has(g.head.id)) continue;
+    claimed.add(g.head.id);
+    unique.push(g);
+  }
+  return unique;
+}
+
+/** Every frame sharing a target with this one, oldest first, with verdicts. */
+export async function getRevisionChain(frameId: number): Promise<{
+  members: FrameListItem[];
+  verdicts: (RevisionVerdict | null)[];
+} | null> {
+  const all = await listAllFrames();
+  const byId = new Map(all.map((r) => [r.id, r]));
+  const target = byId.get(frameId);
+  if (!target) return null;
+
+  // Climb to the root, then walk back down through this frame's own branch.
+  const ancestry: FrameListItem[] = [];
+  let cursor: FrameListItem | undefined = target;
+  const guard = new Set<number>();
+  while (cursor && !guard.has(cursor.id)) {
+    guard.add(cursor.id);
+    ancestry.unshift(cursor);
+    cursor = cursor.parentFrameId != null ? byId.get(cursor.parentFrameId) : undefined;
+  }
+
+  const descendants: FrameListItem[] = [];
+  let frontier = [target];
+  while (frontier.length > 0) {
+    const next = all
+      .filter((f) => frontier.some((p) => p.id === f.parentFrameId))
+      .sort((a, b) => (a.capturedOn < b.capturedOn ? -1 : 1));
+    descendants.push(...next);
+    frontier = next;
+  }
+
+  const members = [...ancestry, ...descendants];
+  if (members.length <= 1) return null;
+
+  const inputs = await revisionInputsFor(members.map((m) => m.id));
+  const verdicts: (RevisionVerdict | null)[] = members.map((m, i) =>
+    i === 0 ? null : classifyRevision(inputs.get(members[i - 1].id)!, inputs.get(m.id)!),
+  );
+  return { members, verdicts };
+}
+
+/**
+ * The next free revision slug for a target, and the frame it revises.
+ *
+ * `frameSlug()` returns the same slug for two frames of one target when the
+ * revision field is empty, which is the state both `IC 63` drafts are in: the
+ * second import is refused with a slug-collision error and has to be
+ * hand-edited before it can exist at all. A second processing of a target is
+ * the normal case, not a mistake, so it gets a letter instead of an error.
+ *
+ * The parent is the newest frame already using the base slug family, which is
+ * by definition another processing of the same target.
+ */
+export async function nextRevisionSlug(
+  baseSlug: string,
+): Promise<{ slug: string; parentId: number | null }> {
+  const family = await db
+    .select({ id: frames.id, slug: frames.slug, capturedOn: frames.capturedOn })
+    .from(frames)
+    .where(or(eq(frames.slug, baseSlug), like(frames.slug, `${baseSlug}-%`)));
+
+  const taken = new Set(family.map((f) => f.slug));
+
+  // b onwards: the first frame of a target keeps the bare slug, so its first
+  // revision is "b" rather than "a" — a lone `ic-63-a` with no `ic-63` would be
+  // a strange thing to produce.
+  let slug = baseSlug;
+  for (let i = 1; taken.has(slug) && i < 26; i++) {
+    slug = `${baseSlug}-${String.fromCharCode(97 + i)}`;
+  }
+
+  const parent = family
+    .filter((f) => f.slug === baseSlug || /-[a-z]$/.test(f.slug))
+    .sort((a, b) => (a.capturedOn < b.capturedOn ? 1 : a.capturedOn > b.capturedOn ? -1 : b.id - a.id))[0];
+
+  return { slug, parentId: parent?.id ?? null };
 }
