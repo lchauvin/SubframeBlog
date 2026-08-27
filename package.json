@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "seed": "node --conditions react-server --import tsx scripts/seed.ts",
+    "survey:revisions": "node --conditions react-server --import tsx scripts/survey-revisions.ts",
     "media:rederive": "node --conditions react-server --import tsx scripts/rederive-media.ts",
     "check:astrometry": "node --conditions react-server --import tsx scripts/verify-astrometry.ts",
     "check:atlas": "node --conditions react-server --import tsx scripts/verify-atlas.ts",
