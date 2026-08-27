@@ -37,6 +37,7 @@ export default async function EditFramePage({
     commonName: frame.commonName,
     frameNumber: frame.frameNumber,
     revision: frame.revision,
+    revisionKind: frame.revisionKind,
     capturedOn: frame.capturedOn,
     palette: frame.palette,
     bandwidth: frame.bandwidth,

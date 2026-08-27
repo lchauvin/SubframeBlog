@@ -17,6 +17,7 @@ export default async function NewFramePage() {
     commonName: "",
     frameNumber: "",
     revision: "",
+    revisionKind: "",
     capturedOn: today(),
     palette: "HOO",
     bandwidth: "3nm",

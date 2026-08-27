@@ -254,9 +254,17 @@ async function renderArticlePage({
                       {formatMonthYear(member.capturedOn)} · {formatMinutes(member.totalIntegrationMinutes)}
                     </Link>
                   )}
-                  {verdict && verdict.changes.length > 0 ? (
-                    <span className={styles.revisionChanges}>{verdict.changes.join(" · ")}</span>
-                  ) : null}
+                  <span className={styles.revisionChanges}>
+                    {verdict && verdict.changes.length > 0 ? verdict.changes.join(" · ") : null}
+                    {!current ? (
+                      <Link
+                        href={`/frame/${frame.slug}/compare/${member.slug}`}
+                        className={styles.compareLink}
+                      >
+                        Compare
+                      </Link>
+                    ) : null}
+                  </span>
                 </li>
               );
             })}

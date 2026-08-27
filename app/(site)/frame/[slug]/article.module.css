@@ -390,3 +390,16 @@ a.revisionSlug:hover {
     text-align: left;
   }
 }
+
+/* Only on the rows that are not the current frame — comparing a frame with
+   itself is not a thing to offer. */
+.compareLink {
+  margin-left: var(--space-3);
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.compareLink:hover {
+  color: var(--color-text);
+}

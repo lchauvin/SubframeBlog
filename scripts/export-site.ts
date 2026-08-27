@@ -25,6 +25,17 @@ const MEDIA_OUT = path.join(OUT, "media");
 /** Derivatives the pages never reference — no reason to upload them. */
 const SKIP_VARIANTS = [/(^|[\\/])master\.[^\\/]+$/];
 
+/**
+ * Removes the placeholder the compare route emits when nothing has been
+ * reprocessed. See EXPORT_SENTINEL in the compare page for why it has to exist:
+ * Next refuses a dynamic route under `output: export` whose params list is
+ * empty, so the route has to emit something even when there is nothing to
+ * compare. That something is a 404 page, and it does not belong in the upload.
+ */
+async function pruneCompareSentinel(): Promise<void> {
+  await fs.rm(path.join(OUT, "frame", "__no-revisions__"), { recursive: true, force: true });
+}
+
 async function copyMedia(): Promise<{ files: number; bytes: number }> {
   let files = 0;
   let bytes = 0;
@@ -136,6 +147,8 @@ async function main() {
     console.error("\nnext build failed.");
     process.exit(build.status ?? 1);
   }
+
+  await pruneCompareSentinel();
 
   console.log("\nCopying media…");
   const media = await copyMedia();

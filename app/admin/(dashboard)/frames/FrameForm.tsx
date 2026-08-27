@@ -21,6 +21,7 @@ export type FrameFormValues = {
   commonName: string;
   frameNumber: string;
   revision: string;
+  revisionKind?: string;
   capturedOn: string;
   palette: string;
   bandwidth: string;
@@ -161,6 +162,7 @@ export function FrameForm({
 
   const [catalogId, setCatalogId] = useState(values.catalogId);
   const [revision, setRevision] = useState(values.revision);
+  const [revisionKind, setRevisionKind] = useState(values.revisionKind ?? "");
   const [slug, setSlug] = useState(values.slug);
   const [slugTouched, setSlugTouched] = useState(Boolean(values.slug));
   const [annotationRows, setAnnotationRows] = useState(annotations);
@@ -291,6 +293,32 @@ export function FrameForm({
             <span className={styles.hint}>
               Same frame number can be reused (004 / A, 004 / B). The slug includes the
               revision so each processing has its own page.
+            </span>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="revisionKind">
+              Relationship to the previous processing
+            </label>
+            <select
+              id="revisionKind"
+              name="revisionKind"
+              className={styles.input}
+              value={revisionKind}
+              onChange={(event) => setRevisionKind(event.target.value)}
+            >
+              <option value="">Work it out from the data (default)</option>
+              <option value="reprocess">Reprocessed — same data, new processing</option>
+              <option value="more-data">More data — extra integration on this target</option>
+              <option value="new-palette">New palette — same subs, mapped differently</option>
+              <option value="new-rig">New rig — different optics or camera</option>
+            </select>
+            <span className={styles.hint}>
+              Normally leave this alone: the relationship is worked out by comparing optics,
+              filters, nights, palette and plate scale, so it stays right when those are edited.
+              Override it for what that comparison cannot see — a mosaic panel, or a reprocess
+              that happened to gain a night. Reprocessed and More data fold this frame into one
+              log row with the ones before it; New palette and New rig keep it as its own entry.
             </span>
           </div>
           {text("palette", "Palette")}

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 
 import { formatMonthYear } from "@/lib/format";
 import type { SearchDoc } from "@/lib/search";
@@ -508,4 +508,25 @@ export async function nextRevisionSlug(
     .sort((a, b) => (a.capturedOn < b.capturedOn ? 1 : a.capturedOn > b.capturedOn ? -1 : b.id - a.id))[0];
 
   return { slug, parentId: parent?.id ?? null };
+}
+
+/** The parsed WCS from a frame's successful solve, or null. */
+export async function getSolvedWcs(frameId: number) {
+  const solve = await db
+    .select()
+    .from(plateSolves)
+    .where(and(eq(plateSolves.frameId, frameId), eq(plateSolves.status, "solved")))
+    .get();
+  if (!solve?.wcsJson) return null;
+  try {
+    const parsed = JSON.parse(solve.wcsJson);
+    // The stored WCS is self-consistent with its own imageWidth/imageHeight —
+    // the derivative that was solved, not the master. Anything using it must
+    // stay in that pixel space; see PLAN-sky-atlas.md gotcha 1.
+    return typeof parsed?.imageWidth === "number" && typeof parsed?.crval1 === "number"
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
 }
