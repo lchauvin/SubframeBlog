@@ -19,6 +19,7 @@ import { db } from "../src/server/db/client";
 import { frames } from "../src/server/db/schema";
 import {
   classifyRevision,
+  clusterByTarget,
   groupChain,
   type RevisionInput,
   type RevisionKind,
@@ -181,6 +182,74 @@ function main() {
   check(
     "every member has a verdict slot, first is null",
     mixed.every((g) => g.verdicts.length === g.members.length) && mixed[0].verdicts[0] === null,
+  );
+
+  console.log("\n== target clustering ==\n");
+
+  // The case that matters most: every frame on a running site predates this
+  // feature and carries a null parent, so clustering must work without links.
+  type T = {
+    id: number;
+    catalogId: string;
+    capturedOn: string;
+    parentFrameId: number | null;
+    ra: number | null;
+    dec: number | null;
+  };
+  const t = (over: Partial<T> = {}): T => ({
+    id: 1,
+    catalogId: "IC 63",
+    capturedOn: "2026-01-01",
+    parentFrameId: null,
+    ra: null,
+    dec: null,
+    ...over,
+  });
+
+  const byCatalog = clusterByTarget(
+    [t({ id: 1 }), t({ id: 2, capturedOn: "2026-02-01" }), t({ id: 3, catalogId: "NGC 7000" })],
+    (r) => r,
+  );
+  check(
+    "same catalog id clusters with no parent link at all",
+    byCatalog.length === 2 && byCatalog.some((c) => c.length === 2),
+    byCatalog.map((c) => c.map((r) => r.id).join("+")).join(" "),
+  );
+
+  const blank = clusterByTarget(
+    [t({ id: 1, catalogId: "" }), t({ id: 2, catalogId: "" })],
+    (r) => r,
+  );
+  check("an empty catalog id does not collapse unrelated frames", blank.length === 2);
+
+  const byPos = clusterByTarget(
+    [
+      t({ id: 1, catalogId: "Sh2-157", ra: 350.1, dec: 60.0 }),
+      t({ id: 2, catalogId: "LBN 537", ra: 350.2, dec: 60.0 }),
+      t({ id: 3, catalogId: "M 31", ra: 10.7, dec: 41.3 }),
+    ],
+    (r) => r,
+  );
+  check(
+    "frames within half a degree cluster despite different catalog ids",
+    byPos.length === 2 && byPos.some((c) => c.length === 2),
+    byPos.map((c) => c.map((r) => r.id).join("+")).join(" "),
+  );
+
+  const linked = clusterByTarget(
+    [t({ id: 1, catalogId: "Old Name" }), t({ id: 2, catalogId: "New Name", parentFrameId: 1 })],
+    (r) => r,
+  );
+  check("an explicit parent link unions frames detection would miss", linked.length === 1);
+
+  const ordered = clusterByTarget(
+    [t({ id: 1, capturedOn: "2026-05-01" }), t({ id: 2, capturedOn: "2026-01-01" })],
+    (r) => r,
+  );
+  check(
+    "clusters come back oldest first",
+    ordered[0][0].capturedOn === "2026-01-01",
+    ordered[0].map((r) => r.capturedOn).join(" "),
   );
 
   console.log("\n== live parent links ==\n");

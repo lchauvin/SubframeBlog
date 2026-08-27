@@ -22,8 +22,10 @@ import {
 
 import {
   classifyRevision,
+  clusterByTarget,
   groupChain,
   opticalGearOf,
+  type TargetRow,
   type RevisionInput,
   type RevisionVerdict,
 } from "../revisions";
@@ -406,55 +408,24 @@ export type FrameGroup = {
 export async function listPublishedFrameGroups(): Promise<FrameGroup[]> {
   const rows = await listPublishedFrames();
   const inputs = await revisionInputsFor(rows.map((r) => r.id));
-  const byId = new Map(rows.map((r) => [r.id, r]));
-
-  // Chain roots are frames whose parent is absent or unpublished — an
-  // unpublished parent must not drag its published child out of the log.
-  const children = new Map<number, FrameListItem[]>();
-  const roots: FrameListItem[] = [];
-  for (const row of rows) {
-    const parent = row.parentFrameId != null ? byId.get(row.parentFrameId) : undefined;
-    if (!parent) roots.push(row);
-    else children.set(parent.id, [...(children.get(parent.id) ?? []), row]);
-  }
+  const targets = await targetRowsFor(rows);
 
   const order = new Map(rows.map((r, i) => [r.id, i]));
   const groups: FrameGroup[] = [];
 
-  for (const root of roots) {
-    // Walk the chain oldest first. Where a frame has several children — the
-    // same processing revised twice — each branch is its own chain.
-    const walk = (node: FrameListItem, chain: FrameListItem[]) => {
-      const next = [...chain, node];
-      const kids = (children.get(node.id) ?? []).sort((a, b) =>
-        a.capturedOn < b.capturedOn ? -1 : a.capturedOn > b.capturedOn ? 1 : a.id - b.id,
-      );
-      if (kids.length === 0) {
-        for (const g of groupChain(next, (f) => inputs.get(f.id)!)) {
-          groups.push({
-            head: g.head,
-            members: g.members,
-            verdicts: g.verdicts,
-            totalMinutes: g.members.reduce((s, m) => s + m.totalIntegrationMinutes, 0),
-          });
-        }
-        return;
-      }
-      for (const kid of kids) walk(kid, next);
-    };
-    walk(root, []);
+  for (const cluster of clusterByTarget(rows, (r) => targets.get(r.id)!)) {
+    for (const g of groupChain(cluster, (f) => inputs.get(f.id)!)) {
+      groups.push({
+        head: g.head,
+        members: g.members,
+        verdicts: g.verdicts,
+        totalMinutes: g.members.reduce((sum, m) => sum + m.totalIntegrationMinutes, 0),
+      });
+    }
   }
 
-  // De-duplicate: branching chains share their trunk, so a frame can land in
-  // more than one group. The group whose head it is wins; otherwise the first.
-  const claimed = new Set<number>();
-  const unique: FrameGroup[] = [];
-  for (const g of groups.sort((a, b) => (order.get(a.head.id) ?? 0) - (order.get(b.head.id) ?? 0))) {
-    if (claimed.has(g.head.id)) continue;
-    claimed.add(g.head.id);
-    unique.push(g);
-  }
-  return unique;
+  // Back into gallery order, so `sortIndex` keeps working untouched.
+  return groups.sort((a, b) => (order.get(a.head.id) ?? 0) - (order.get(b.head.id) ?? 0));
 }
 
 /** Every frame sharing a target with this one, oldest first, with verdicts. */
@@ -463,38 +434,43 @@ export async function getRevisionChain(frameId: number): Promise<{
   verdicts: (RevisionVerdict | null)[];
 } | null> {
   const all = await listAllFrames();
-  const byId = new Map(all.map((r) => [r.id, r]));
-  const target = byId.get(frameId);
-  if (!target) return null;
-
-  // Climb to the root, then walk back down through this frame's own branch.
-  const ancestry: FrameListItem[] = [];
-  let cursor: FrameListItem | undefined = target;
-  const guard = new Set<number>();
-  while (cursor && !guard.has(cursor.id)) {
-    guard.add(cursor.id);
-    ancestry.unshift(cursor);
-    cursor = cursor.parentFrameId != null ? byId.get(cursor.parentFrameId) : undefined;
-  }
-
-  const descendants: FrameListItem[] = [];
-  let frontier = [target];
-  while (frontier.length > 0) {
-    const next = all
-      .filter((f) => frontier.some((p) => p.id === f.parentFrameId))
-      .sort((a, b) => (a.capturedOn < b.capturedOn ? -1 : 1));
-    descendants.push(...next);
-    frontier = next;
-  }
-
-  const members = [...ancestry, ...descendants];
-  if (members.length <= 1) return null;
-
-  const inputs = await revisionInputsFor(members.map((m) => m.id));
-  const verdicts: (RevisionVerdict | null)[] = members.map((m, i) =>
-    i === 0 ? null : classifyRevision(inputs.get(members[i - 1].id)!, inputs.get(m.id)!),
+  const targets = await targetRowsFor(all);
+  const cluster = clusterByTarget(all, (r) => targets.get(r.id)!).find((c) =>
+    c.some((f) => f.id === frameId),
   );
-  return { members, verdicts };
+  if (!cluster || cluster.length <= 1) return null;
+
+  const inputs = await revisionInputsFor(cluster.map((m) => m.id));
+  const verdicts: (RevisionVerdict | null)[] = cluster.map((m, i) =>
+    i === 0 ? null : classifyRevision(inputs.get(cluster[i - 1].id)!, inputs.get(m.id)!),
+  );
+  return { members: cluster, verdicts };
+}
+
+/** Identity rows for target clustering: catalog id, date, link, solved centre. */
+async function targetRowsFor(rows: FrameListItem[]): Promise<Map<number, TargetRow>> {
+  const ids = rows.map((r) => r.id);
+  const solveRows =
+    ids.length > 0
+      ? await db.select().from(plateSolves).where(inArray(plateSolves.frameId, ids))
+      : [];
+
+  return new Map(
+    rows.map((r) => {
+      const solve = solveRows.find((s) => s.frameId === r.id && s.status === "solved");
+      return [
+        r.id,
+        {
+          id: r.id,
+          catalogId: r.catalogId,
+          capturedOn: r.capturedOn,
+          parentFrameId: r.parentFrameId,
+          ra: solve?.centerRa ?? null,
+          dec: solve?.centerDec ?? null,
+        } satisfies TargetRow,
+      ];
+    }),
+  );
 }
 
 /**

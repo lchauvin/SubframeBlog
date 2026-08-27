@@ -1,5 +1,7 @@
 import "server-only";
 
+import { angularSeparation } from "./astrometry/wcs";
+
 /**
  * Typing the relationship between two processings of the same target.
  *
@@ -231,4 +233,88 @@ export function groupChain<T>(
 
   groups.push(current);
   return groups;
+}
+
+/** Identity signals for deciding two frames are the same target. */
+export type TargetRow = {
+  id: number;
+  catalogId: string;
+  capturedOn: string;
+  parentFrameId: number | null;
+  /** Solved centre, when there is one. */
+  ra: number | null;
+  dec: number | null;
+};
+
+/** Same threshold the sky atlas uses to call two footprints one target. */
+const SAME_TARGET_DEG = 0.5;
+
+const normId = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Groups frames that are processings of the same target.
+ *
+ * Detection rather than bookkeeping, deliberately. `parentFrameId` is only ever
+ * set when a *new* frame collides on a slug, so every frame that existed before
+ * revisions did carries a null parent — which is all of them on a running site.
+ * Requiring the link would mean the feature only ever applied to content created
+ * after it shipped, and would need a backfill on every deployment that has
+ * history. The sky atlas already answers "are these the same target?" from
+ * catalog id and solved position, and that answer is available for frames nobody
+ * has touched.
+ *
+ * An explicit parent link still wins where it exists: it unions two frames whose
+ * catalog ids and positions would not have matched — a renamed target, a frame
+ * with no solve — which is exactly the case detection cannot cover.
+ */
+export function clusterByTarget<T>(rows: T[], read: (row: T) => TargetRow): T[][] {
+  const parent = rows.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const union = (a: number, b: number) => {
+    const [ra, rb] = [find(a), find(b)];
+    if (ra !== rb) parent[rb] = ra;
+  };
+
+  const info = rows.map(read);
+  const indexById = new Map(info.map((r, i) => [r.id, i]));
+
+  for (let i = 0; i < rows.length; i++) {
+    // An author-set link is authoritative.
+    const linked = info[i].parentFrameId;
+    if (linked != null && indexById.has(linked)) union(indexById.get(linked)!, i);
+
+    for (let j = i + 1; j < rows.length; j++) {
+      const a = info[i];
+      const b = info[j];
+
+      // An empty catalog id must not collapse every unnamed frame together.
+      const idA = normId(a.catalogId);
+      const idB = normId(b.catalogId);
+      if (idA && idA === idB) {
+        union(i, j);
+        continue;
+      }
+
+      if (a.ra !== null && a.dec !== null && b.ra !== null && b.dec !== null) {
+        if (angularSeparation(a.ra, a.dec, b.ra, b.dec) <= SAME_TARGET_DEG) union(i, j);
+      }
+    }
+  }
+
+  const buckets = new Map<number, T[]>();
+  rows.forEach((row, i) => {
+    const key = find(i);
+    buckets.set(key, [...(buckets.get(key) ?? []), row]);
+  });
+
+  // Oldest first — the chain reads forwards in time, and `groupChain` judges
+  // each frame against the one before it.
+  return [...buckets.values()].map((bucket) =>
+    bucket.sort((x, y) => {
+      const a = read(x);
+      const b = read(y);
+      if (a.capturedOn !== b.capturedOn) return a.capturedOn < b.capturedOn ? -1 : 1;
+      return a.id - b.id;
+    }),
+  );
 }
