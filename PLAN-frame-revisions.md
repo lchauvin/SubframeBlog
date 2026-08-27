@@ -190,22 +190,38 @@ total`. Accompanying frames remain their own rows, with a `also shot with…` cr
 A revision rail listing every frame in the group, current one marked, each hop labelled with its
 derived kind and delta (`+8h 34m`, `SHO → HOO`, `RC8 → Esprit 100`).
 
-### 5.3 Compare
+### 5.3 Compare — built, then removed
 
-The payoff, and the reason this is worth building at all. Two revisions in the existing `Viewer`,
-pan and zoom locked together, with a blink/swipe control.
+Built and reverted on 2026-08-27. Restore from `76538ea`, `f6205fd`, `882d149`, `02e4c23` if it is
+picked up again; everything below is what those commits learned, and is worth reading before a
+second attempt.
 
-**The plate solves make alignment free.** Both frames carry a full `wcs_json`, so the same sky
-coordinate can be located in both images without any registration code — reusing `pixelToSky` /
-`skyToPixel` from `src/server/astrometry/wcs.ts`. Note `PLAN-sky-atlas.md` gotcha 1: a frame's WCS is
-scaled to the derivative that was solved, not the master, so it is self-consistent only with its own
-`imageWidth`/`imageHeight`. Convert through sky coordinates, never by assuming the two images share a
-pixel grid.
+**The registration was never the problem.** Both frames carry a full WCS, so going through sky
+coordinates gives the mapping for free — verified against the live images three ways: warping one
+frame into the other and scanning a +/-24px offset grid peaks sharply at zero (59 star hits against
+10-19 anywhere else); the same patch of sky cropped from both shows the same nebula at the same
+orientation; and the derived scale, 0.8541, is the ratio of the two plate scales, 3.519/4.116 =
+0.8550. The component's CSS transform reproduced that warp to 0.00px.
 
-For a **reprocess** the two are pixel-identical in framing and the blink is exact. For **more data**
-and **new rig** they are not, which is precisely when going through the WCS matters.
+What defeated it was everything layered on top:
 
-Underneath: the filter-mix bars side by side, and the integration delta.
+1. **The swipe divider was cut in the wrong coordinate space.** Its position is a percentage of the
+   canvas, but the clip was applied inside the transform, where a percentage means a percentage of
+   the image. The view opens zoomed on the shared region, so the two never agreed; at the extremes
+   one frame replaced the other wholesale, which is indistinguishable from failed registration.
+2. **The divider was hit-tested by proximity**, so a missed grab panned the image instead — two
+   screenshots of one comparison no longer shared a viewport.
+3. **IC 63's frames are 99° apart and share 69% of the field.** Even correctly drawn, a swipe puts
+   sky only one frame has beside sky both have, and the eye reads that as drift. Clipping to the
+   intersection polygon helped and was not enough.
+4. **The depths differ 4x** — 2h55m against 11h29m — so the nebula that dominates one is barely
+   present in the other, and no amount of geometry makes those look like the same picture.
+
+A second attempt should probably not be a swipe at all. Blink with both frames matched in stretch,
+or a small aligned thumbnail pair, would sidestep 1 to 4 entirely. And it should carry a visible
+registration check — a marker drawn at one sky coordinate in *both* layers, which coincide when the
+alignment is right — so "is this aligned?" stops being a judgement call. Three rounds went into
+answering that question with offline measurements when the UI could have answered it directly.
 
 ## 6. Verification
 
@@ -224,6 +240,7 @@ New `scripts/verify-revisions.ts` (`npm run check:revisions`) asserts:
 
 ## Out of scope
 
+- The compare view, for now — see §5.3 for what went wrong and what to do differently.
 - Merging or deleting frames. Never.
 - Transitive relationship kinds across a chain (§2.3).
 - Re-registering images pixel-wise; alignment goes through the existing plate solves or not at all.
