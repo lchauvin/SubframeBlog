@@ -54,6 +54,14 @@ export type RevisionInput = {
   /** Only the rows that describe the optical train. See `OPTICAL_KEYS`. */
   opticalGear: { keyLabel: string; value: string }[];
   filters: { name: string; keptFrames: number; hours: number }[];
+  /**
+   * Distinct nights, not rows in the `nights` table.
+   *
+   * That table is one row per night *per filter*, so a single evening through
+   * five filters is five rows. Counting rows reported IC 63's second frame as
+   * gaining eleven nights over its first when it gained two: four rows over one
+   * night against fifteen over three.
+   */
   nightCount: number;
   /** Author override; empty means derive. */
   revisionKind: string;

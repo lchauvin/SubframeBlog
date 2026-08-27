@@ -122,14 +122,14 @@ function main() {
       palette: "HaRGB",
       pixScale: 1.409,
       totalIntegrationMinutes: 175,
-      nightCount: 4,
+      nightCount: 1,
       filters: [{ name: "Ha", keptFrames: 15, hours: 1.25 }],
     }),
     frame({
       palette: "HSRGB",
       pixScale: 1.205,
       totalIntegrationMinutes: 689,
-      nightCount: 15,
+      nightCount: 3,
       filters: [
         { name: "SII", keptFrames: 58, hours: 4.83 },
         { name: "Ha", keptFrames: 55, hours: 4.58 },
@@ -183,8 +183,8 @@ function main() {
   // this supersedes rather than accompanying.
   expectKind(
     "a palette that changed because data was added is more data",
-    frame({ palette: "HaRGB", totalIntegrationMinutes: 175, nightCount: 4 }),
-    frame({ palette: "HSRGB", totalIntegrationMinutes: 689, nightCount: 15 }),
+    frame({ palette: "HaRGB", totalIntegrationMinutes: 175, nightCount: 1 }),
+    frame({ palette: "HSRGB", totalIntegrationMinutes: 689, nightCount: 3 }),
     "more-data",
   );
 
@@ -193,6 +193,16 @@ function main() {
     frame({ palette: "SHO" }),
     frame({ palette: "HOO" }),
     "new-palette",
+  );
+
+  // IC 63 gained two nights, not eleven: `nights` is one row per night per
+  // filter, so four rows over one night against fifteen over three.
+  check(
+    "the night delta counts nights, not log rows",
+    classifyRevision(frame({ nightCount: 1 }), frame({ nightCount: 3 })).changes.includes(
+      "+2 nights",
+    ),
+    classifyRevision(frame({ nightCount: 1 }), frame({ nightCount: 3 })).changes.join(" · "),
   );
 
   expectKind(

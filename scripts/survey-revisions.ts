@@ -75,7 +75,14 @@ function makeInputOf(rows: Row[]) {
         db.select().from(frameGear).where(eq(frameGear.frameId, frameId)).all(),
       ),
       filters: db.select().from(frameFilters).where(eq(frameFilters.frameId, frameId)).all(),
-      nightCount: db.select().from(nights).where(eq(nights.frameId, frameId)).all().length,
+      nightCount: new Set(
+        db
+          .select()
+          .from(nights)
+          .where(eq(nights.frameId, frameId))
+          .all()
+          .map((n) => n.nightDate),
+      ).size,
       revisionKind: row.revisionKind,
     };
   };
@@ -150,7 +157,8 @@ async function main() {
         }`,
       );
       console.log(
-        `    nights  : ${nightRows.length} row(s)` +
+        `    nights  : ${new Set(nightRows.map((n) => n.nightDate)).size} night(s)` +
+          ` across ${nightRows.length} log row(s)` +
           (nightRows.length
             ? ` ${nightRows[0].nightDate} → ${nightRows[nightRows.length - 1].nightDate}`
             : ""),

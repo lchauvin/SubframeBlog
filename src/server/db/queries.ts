@@ -378,7 +378,10 @@ async function revisionInputsFor(frameIds: number[]): Promise<Map<number, Revisi
       pixScale: solve?.pixScale ?? null,
       opticalGear: opticalGearOf(gearRows.filter((g) => g.frameId === f.id)),
       filters: filterRows.filter((r) => r.frameId === f.id),
-      nightCount: nightRows.filter((n) => n.frameId === f.id).length,
+      // Distinct dates: `nights` is one row per night per filter.
+      nightCount: new Set(
+        nightRows.filter((n) => n.frameId === f.id).map((n) => n.nightDate),
+      ).size,
       revisionKind: f.revisionKind,
     });
   }
