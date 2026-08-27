@@ -104,6 +104,15 @@ export type Overlap = {
   height: number;
   /** Shared area as a fraction of the reference frame. */
   fraction: number;
+  /**
+   * The shared region itself, in reference pixels.
+   *
+   * The bounding box is not enough to show it: a frame rotated 99° meets
+   * another in a quadrilateral whose bounding box is most of the frame, so
+   * clipping to the box would still put un-comparable sky on screen — which is
+   * the entire problem this is here to solve.
+   */
+  points: { x: number; y: number }[];
 };
 
 type Point = { x: number; y: number };
@@ -184,6 +193,7 @@ export function overlapRegion(alignment: Alignment): Overlap | null {
     width: Math.max(...xs) - x,
     height: Math.max(...ys) - y,
     fraction: area(poly) / (refWidth * refHeight),
+    points: poly.map((point) => ({ x: point.x, y: point.y })),
   };
 }
 

@@ -35,6 +35,7 @@ export type CompareOverlap = {
   width: number;
   height: number;
   fraction: number;
+  points: { x: number; y: number }[];
 };
 
 export type CompareViewerProps = {
@@ -78,6 +79,8 @@ export function CompareViewer(props: CompareViewerProps) {
   const [split, setSplit] = useState(50);
   const [showOther, setShowOther] = useState(false);
   const [dragging, setDragging] = useState<"pan" | "split" | null>(null);
+  /** Whether to show only the sky both frames cover. */
+  const [sharedOnly, setSharedOnly] = useState(true);
 
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
   const didInitialFit = useRef(false);
@@ -185,8 +188,13 @@ export function CompareViewer(props: CompareViewerProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") router.push(props.backHref);
-      else if (e.key === "0") setView(FIT);
-      else if (e.key === "1") fitOverlap();
+      else if (e.key === "0") {
+        setSharedOnly(false);
+        setView(FIT);
+      } else if (e.key === "1") {
+        setSharedOnly(true);
+        fitOverlap();
+      }
       else if (e.key === "b" || e.key === "B") {
         setMode("blink");
         setShowOther((v) => !v);
@@ -255,6 +263,27 @@ export function CompareViewer(props: CompareViewerProps) {
     } as const;
   }, [props.alignment, base.w]);
 
+  /**
+   * Clips the whole comparison to the region both frames cover.
+   *
+   * Without it the swipe puts sky only one frame has next to sky both have, and
+   * the eye reads that discontinuity as a registration failure — which is what
+   * it looked like on IC 63, where the frames are 99° apart and share 69% of the
+   * field. Everything inside this outline is comparable; nothing outside it is.
+   */
+  const sharedClip = useMemo(() => {
+    const overlap = props.overlap;
+    const alignment = props.alignment;
+    if (!sharedOnly || !overlap || !alignment || overlap.points.length < 3) return undefined;
+    const pts = overlap.points
+      .map(
+        (p) =>
+          `${((p.x / alignment.refWidth) * 100).toFixed(3)}% ${((p.y / alignment.refHeight) * 100).toFixed(3)}%`,
+      )
+      .join(", ");
+    return `polygon(${pts})`;
+  }, [sharedOnly, props.overlap, props.alignment]);
+
   const rotationDeg = props.alignment ? (props.alignment.rotation * 180) / Math.PI : 0;
   const scalePct = props.alignment ? (props.alignment.scale - 1) * 100 : 0;
 
@@ -290,10 +319,24 @@ export function CompareViewer(props: CompareViewerProps) {
           >
             Blink
           </button>
-          <button type="button" className={styles.control} onClick={fitOverlap}>
-            Overlap
+          <button
+            type="button"
+            className={`${styles.control} ${sharedOnly ? styles.active : ""}`}
+            onClick={() => {
+              setSharedOnly(true);
+              fitOverlap();
+            }}
+          >
+            Shared sky
           </button>
-          <button type="button" className={styles.control} onClick={() => setView(FIT)}>
+          <button
+            type="button"
+            className={styles.control}
+            onClick={() => {
+              setSharedOnly(false);
+              setView(FIT);
+            }}
+          >
             Whole frame
           </button>
           <button
@@ -312,8 +355,9 @@ export function CompareViewer(props: CompareViewerProps) {
           {Math.abs(rotationDeg) >= 1
             ? `, and the second is rotated ${Math.abs(rotationDeg).toFixed(0)}° from the first`
             : ""}
-          . The view opens on the region they both cover — outside it only one of them has data,
-          so there is nothing to compare there. Press 0 for the whole frame, 1 to come back.
+          . Only the region they both cover is shown, because outside it one of them has no data
+          at all and the gap reads as a registration failure. Press 0 for the whole frame, 1 to
+          come back.
         </div>
       ) : null}
 
@@ -342,6 +386,7 @@ export function CompareViewer(props: CompareViewerProps) {
               width: base.w || undefined,
               height: base.h || undefined,
               opacity: base.w > 0 ? 1 : 0,
+              clipPath: sharedClip,
             }}
           >
             <img
