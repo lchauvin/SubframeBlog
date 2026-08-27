@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CompareViewer } from "@/components/CompareViewer";
 import { formatMinutes, formatMonthYear } from "@/lib/format";
-import { alignWcs } from "@/server/astrometry/align";
+import { alignWcs, overlapRegion } from "@/server/astrometry/align";
 import type { Wcs } from "@/server/astrometry/wcs";
 import { getCurrentAdmin } from "@/server/auth/session";
 import {
@@ -105,6 +105,7 @@ async function renderComparePage({ params }: { params: Promise<Params> }) {
   ]);
 
   const alignment = refWcs && otherWcs ? alignWcs(refWcs as Wcs, otherWcs as Wcs) : null;
+  const overlap = alignment ? overlapRegion(alignment) : null;
 
   const side = (frame: typeof reference, label: string) => {
     const image = pickImage(frame.images, "viewer");
@@ -127,6 +128,7 @@ async function renderComparePage({ params }: { params: Promise<Params> }) {
       reference={side(reference, reference.revision ? `Rev ${reference.revision}` : "This one")}
       other={side(comparison, comparison.revision ? `Rev ${comparison.revision}` : "The other")}
       alignment={alignment}
+      overlap={overlap}
       changes={verdict?.changes ?? []}
       kindLabel={verdict ? KIND_LABEL[verdict.kind] : "Same target"}
       backHref={`/frame/${reference.slug}`}

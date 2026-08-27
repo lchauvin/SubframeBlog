@@ -29,12 +29,22 @@ export type CompareSide = {
   paletteLabel: string;
 };
 
+export type CompareOverlap = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fraction: number;
+};
+
 export type CompareViewerProps = {
   title: string;
   reference: CompareSide;
   other: CompareSide;
   /** null when either frame is unsolved — the images then cannot be registered. */
   alignment: CompareAlignment | null;
+  /** Where both frames see the same sky. null when they share nothing. */
+  overlap: CompareOverlap | null;
   changes: string[];
   kindLabel: string;
   backHref: string;
@@ -70,6 +80,7 @@ export function CompareViewer(props: CompareViewerProps) {
   const [dragging, setDragging] = useState<"pan" | "split" | null>(null);
 
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
+  const didInitialFit = useRef(false);
 
   const aspect =
     props.reference.height > 0 ? props.reference.width / props.reference.height : 1.71;
@@ -101,6 +112,41 @@ export function CompareViewer(props: CompareViewerProps) {
     },
     [base.w, base.h, canvas.w, canvas.h],
   );
+
+  /**
+   * Frames the shared sky rather than the reference frame.
+   *
+   * Two processings of a target need not cover the same field — IC 63's share
+   * just half of it, 99° apart in rotation — and opening on the reference frame
+   * puts mostly un-comparable sky on screen. The registration is exact; there
+   * is simply nothing under most of it, which is indistinguishable from being
+   * broken until you go looking for the overlap yourself.
+   */
+  const fitOverlap = useCallback(() => {
+    const overlap = props.overlap;
+    const alignment = props.alignment;
+    if (!overlap || !alignment || base.w <= 0 || canvas.w <= 0) return;
+    const k = base.w / alignment.refWidth;
+    const w = overlap.width * k;
+    const h = overlap.height * k;
+    if (w <= 0 || h <= 0) return;
+    // A little margin, so the shared region is not flush against the edges.
+    const zoom = clamp(Math.min(canvas.w / w, canvas.h / h) * 0.94, 1, MAX_ZOOM);
+    const cx = (overlap.x + overlap.width / 2) * k;
+    const cy = (overlap.y + overlap.height / 2) * k;
+    setView({
+      zoom,
+      ...clampPan(-(cx - base.w / 2) * zoom, -(cy - base.h / 2) * zoom, zoom),
+    });
+  }, [props.overlap, props.alignment, base.w, base.h, canvas.w, canvas.h, clampPan]);
+
+  // Once, when the canvas first has a size. Never again, or it would yank the
+  // view back every time the window resized.
+  useEffect(() => {
+    if (didInitialFit.current || base.w <= 0 || canvas.w <= 0) return;
+    didInitialFit.current = true;
+    fitOverlap();
+  }, [base.w, canvas.w, fitOverlap]);
 
   const zoomBy = useCallback(
     (factor: number, anchor?: { x: number; y: number }) => {
@@ -140,6 +186,7 @@ export function CompareViewer(props: CompareViewerProps) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") router.push(props.backHref);
       else if (e.key === "0") setView(FIT);
+      else if (e.key === "1") fitOverlap();
       else if (e.key === "b" || e.key === "B") {
         setMode("blink");
         setShowOther((v) => !v);
@@ -147,7 +194,7 @@ export function CompareViewer(props: CompareViewerProps) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [router, props.backHref]);
+  }, [router, props.backHref, fitOverlap]);
 
   const splitFromEvent = (clientX: number) => {
     const el = canvasRef.current;
@@ -243,8 +290,11 @@ export function CompareViewer(props: CompareViewerProps) {
           >
             Blink
           </button>
+          <button type="button" className={styles.control} onClick={fitOverlap}>
+            Overlap
+          </button>
           <button type="button" className={styles.control} onClick={() => setView(FIT)}>
-            Fit
+            Whole frame
           </button>
           <button
             type="button"
@@ -255,6 +305,17 @@ export function CompareViewer(props: CompareViewerProps) {
           </button>
         </div>
       </div>
+
+      {props.alignment && props.overlap && props.overlap.fraction < 0.9 ? (
+        <div className={styles.notice}>
+          These two frames only share {Math.round(props.overlap.fraction * 100)}% of their sky
+          {Math.abs(rotationDeg) >= 1
+            ? `, and the second is rotated ${Math.abs(rotationDeg).toFixed(0)}° from the first`
+            : ""}
+          . The view opens on the region they both cover — outside it only one of them has data,
+          so there is nothing to compare there. Press 0 for the whole frame, 1 to come back.
+        </div>
+      ) : null}
 
       {!props.alignment ? (
         <div className={styles.notice}>
@@ -351,6 +412,7 @@ export function CompareViewer(props: CompareViewerProps) {
               {Math.abs(rotationDeg) >= 0.05 ? `rotated ${rotationDeg.toFixed(1)}°` : "no rotation"}
               {" · "}
               {Math.abs(scalePct) >= 0.5 ? `${scalePct > 0 ? "+" : ""}${scalePct.toFixed(1)}% scale` : "same scale"}
+              {props.overlap ? ` · ${Math.round(props.overlap.fraction * 100)}% shared sky` : ""}
             </span>
           </div>
         ) : null}

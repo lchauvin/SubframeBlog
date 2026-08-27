@@ -94,3 +94,104 @@ export function arcsecPerPixel(wcs: Wcs): number {
   const det = Math.abs(wcs.cd11 * wcs.cd22 - wcs.cd12 * wcs.cd21);
   return Math.sqrt(det) * 3600;
 }
+
+/** The region of the reference frame that the other frame also covers. */
+export type Overlap = {
+  /** Bounding box of the shared region, in reference pixels. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Shared area as a fraction of the reference frame. */
+  fraction: number;
+};
+
+type Point = { x: number; y: number };
+
+/** Sutherland–Hodgman: clip a convex polygon against a half-plane. */
+function clipHalfPlane(poly: Point[], inside: (p: Point) => boolean, intersect: (a: Point, b: Point) => Point): Point[] {
+  const out: Point[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const current = poly[i];
+    const previous = poly[(i + poly.length - 1) % poly.length];
+    const currentIn = inside(current);
+    const previousIn = inside(previous);
+    if (currentIn) {
+      if (!previousIn) out.push(intersect(previous, current));
+      out.push(current);
+    } else if (previousIn) {
+      out.push(intersect(previous, current));
+    }
+  }
+  return out;
+}
+
+const area = (poly: Point[]) => {
+  let sum = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    sum += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(sum) / 2;
+};
+
+/**
+ * Where the two frames actually see the same sky.
+ *
+ * Two processings of one target need not share much: IC 63's are 99° apart in
+ * rotation and 15% apart in scale, so laying the second over the first and
+ * fitting the view to the *first* shows mostly the region only one of them
+ * covers. That reads as broken registration when the registration is exact —
+ * there is simply nothing to compare over most of the frame. Fitting the view
+ * to this region instead puts the shared sky on screen, which is the only part
+ * a comparison means anything in.
+ */
+export function overlapRegion(alignment: Alignment): Overlap | null {
+  const { scale, rotation, tx, ty, refWidth, refHeight, otherWidth, otherHeight } = alignment;
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  const map = (x: number, y: number): Point => ({
+    x: scale * (cos * x - sin * y) + tx,
+    y: scale * (sin * x + cos * y) + ty,
+  });
+
+  let poly: Point[] = [
+    map(0, 0),
+    map(otherWidth, 0),
+    map(otherWidth, otherHeight),
+    map(0, otherHeight),
+  ];
+
+  const edges: [(p: Point) => boolean, (a: Point, b: Point) => Point][] = [
+    [(p) => p.x >= 0, (a, b) => lerpX(a, b, 0)],
+    [(p) => p.x <= refWidth, (a, b) => lerpX(a, b, refWidth)],
+    [(p) => p.y >= 0, (a, b) => lerpY(a, b, 0)],
+    [(p) => p.y <= refHeight, (a, b) => lerpY(a, b, refHeight)],
+  ];
+  for (const [inside, intersect] of edges) {
+    poly = clipHalfPlane(poly, inside, intersect);
+    if (poly.length === 0) return null;
+  }
+
+  const xs = poly.map((p) => p.x);
+  const ys = poly.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return {
+    x,
+    y,
+    width: Math.max(...xs) - x,
+    height: Math.max(...ys) - y,
+    fraction: area(poly) / (refWidth * refHeight),
+  };
+}
+
+const lerpX = (a: Point, b: Point, x: number): Point => ({
+  x,
+  y: a.y + ((b.y - a.y) * (x - a.x)) / (b.x - a.x || 1e-9),
+});
+const lerpY = (a: Point, b: Point, y: number): Point => ({
+  x: a.x + ((b.x - a.x) * (y - a.y)) / (b.y - a.y || 1e-9),
+  y,
+});
