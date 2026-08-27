@@ -77,11 +77,65 @@ function main() {
     "new-palette",
   );
 
+  // Production's IC 63: 14.5% apart in plate scale with byte-identical optics,
+  // because the second frame is a tighter crop of the same field. The rig did
+  // not change; the processing did.
   expectKind(
-    "a changed plate scale is a new rig",
-    frame({ pixScale: 1.5 }),
-    frame({ pixScale: 2.1 }),
+    "a changed plate scale with the same recorded optics is a crop, not a new rig",
+    frame({ pixScale: 1.409 }),
+    frame({ pixScale: 1.205 }),
+    "reprocess",
+  );
+
+  check(
+    "a crop is reported as a reframe rather than silently",
+    classifyRevision(frame({ pixScale: 1.409 }), frame({ pixScale: 1.205 })).changes.includes(
+      "reframed",
+    ),
+  );
+
+  expectKind(
+    "plate scale decides when neither frame records its optics",
+    frame({ opticalGear: [], pixScale: 1.5 }),
+    frame({ opticalGear: [], pixScale: 2.1 }),
     "new-rig",
+  );
+
+  expectKind(
+    "different recorded optics is a new rig whatever the scale says",
+    frame({ opticalGear: [{ keyLabel: "Optics", value: "RedCat 51" }] }),
+    frame({ opticalGear: [{ keyLabel: "Optics", value: "Esprit 100" }] }),
+    "new-rig",
+  );
+
+  expectKind(
+    "the same scope under a renamed key is not a rig change",
+    frame({ opticalGear: [{ keyLabel: "Optics", value: "RedCat 51" }] }),
+    frame({ opticalGear: [{ keyLabel: "Telescope", value: "RedCat 51" }] }),
+    "reprocess",
+  );
+
+  // The whole IC 63 pair as production actually holds it.
+  expectKind(
+    "IC 63 as production holds it: crop + SII added + 8h34m more",
+    frame({
+      palette: "HaRGB",
+      pixScale: 1.409,
+      totalIntegrationMinutes: 175,
+      nightCount: 4,
+      filters: [{ name: "Ha", keptFrames: 15, hours: 1.25 }],
+    }),
+    frame({
+      palette: "HSRGB",
+      pixScale: 1.205,
+      totalIntegrationMinutes: 689,
+      nightCount: 15,
+      filters: [
+        { name: "SII", keptFrames: 58, hours: 4.83 },
+        { name: "Ha", keptFrames: 55, hours: 4.58 },
+      ],
+    }),
+    "more-data",
   );
 
   // The rule this suite exists to defend.
@@ -124,6 +178,23 @@ function main() {
     "reprocess",
   );
 
+  // Production's IC 63: HaRGB -> HSRGB because SII was added, with 8h34m and
+  // eleven nights alongside it. The palette label followed the acquisition, so
+  // this supersedes rather than accompanying.
+  expectKind(
+    "a palette that changed because data was added is more data",
+    frame({ palette: "HaRGB", totalIntegrationMinutes: 175, nightCount: 4 }),
+    frame({ palette: "HSRGB", totalIntegrationMinutes: 689, nightCount: 15 }),
+    "more-data",
+  );
+
+  expectKind(
+    "a palette change with no new data is still a reinterpretation",
+    frame({ palette: "SHO" }),
+    frame({ palette: "HOO" }),
+    "new-palette",
+  );
+
   expectKind(
     "an author override wins over the derivation",
     frame(),
@@ -158,8 +229,8 @@ function main() {
   );
 
   const rigChain = chain(
-    frame({ slug: "a", pixScale: 1.5 }),
-    frame({ slug: "b", pixScale: 2.4 }),
+    frame({ slug: "a", opticalGear: [{ keyLabel: "Optics", value: "RedCat 51" }] }),
+    frame({ slug: "b", opticalGear: [{ keyLabel: "Optics", value: "Esprit 100" }] }),
   );
   check(
     "a new rig starts its own group so both stay in the log",
@@ -167,11 +238,13 @@ function main() {
     `${rigChain.length} group(s)`,
   );
 
+  const rc = [{ keyLabel: "Optics", value: "RedCat 51" }];
+  const esprit = [{ keyLabel: "Optics", value: "Esprit 100" }];
   const mixed = chain(
-    frame({ slug: "a", pixScale: 1.5 }),
-    frame({ slug: "b", pixScale: 1.5, totalIntegrationMinutes: 1200 }),
-    frame({ slug: "c", pixScale: 2.4 }),
-    frame({ slug: "d", pixScale: 2.4 }),
+    frame({ slug: "a", opticalGear: rc }),
+    frame({ slug: "b", opticalGear: rc, totalIntegrationMinutes: 1200 }),
+    frame({ slug: "c", opticalGear: esprit }),
+    frame({ slug: "d", opticalGear: esprit }),
   );
   check(
     "supersedes folds in, accompanies splits",

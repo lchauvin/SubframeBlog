@@ -19,34 +19,45 @@ the pair collapses.
 
 ---
 
-## Status: the production survey has not been run
+## Status: surveyed against production, and it changed the rule twice
 
-The design below rests on one claim — that the kind of relationship between two frames can be
-derived rather than hand-classified — and that claim is **not yet verified against real revision
-pairs**. The local database has five design frames and no revisions at all.
+Run on the 2026-08-27 snapshot: **16 frames, 14 targets, 2 with revisions.** Both now collapse
+correctly — 16 frames render as 14 log rows.
 
-`npm run survey:revisions` (added with this plan, read-only) reports every multi-frame target, the
-gear/filter/night/palette/scale differences within it, the kind the rule below would assign, and any
-slug collisions. **Run it against production before building anything**, either on the server or
-against a snapshot from `/admin/diagnostics` → Download database backup.
-
-What is already known about production, from the sky atlas survey in `PLAN-sky-atlas.md`:
-
-- **16 published frames**, Sep 2024 → Aug 2026.
-- **Two targets already exist as A/B pairs**: `Sh2-157` (`sh2-157`, `sh2-157-b`, centres < 0.01°
-  apart) and `IC 63` (`ic-63`, `ic-63-b`, ~0.12° apart).
-- 15 of 16 frames are solved, so `plate_solves.pix_scale` is available as physical evidence for most.
-
-And from the two frame drafts in the repo root, which are the live case:
-
-| | `IC63-frame.json` | `IC63-B-frame.json` |
+| pair | verdict | why |
 | --- | --- | --- |
-| slug | `ic-63` | `ic-63` |
-| revision | `""` | `""` |
-| captured | 2025-07-22 | 2025-09-03 |
-| integration | 2h 55m | **11h 29m** |
+| `sh2-157` → `sh2-157-b` | **reprocess** | identical integration, filters and nights; plate scale 0.17% apart |
+| `ic-63` → `ic-63-b` | **more data** | `reframed · HaRGB 7nm → HSRGB 7nm · +8h 34m · +11 nights` |
 
-### Gotchas (found by running the survey against synthetic revisions)
+Neither classified correctly on the first attempt, and the corrections are the substance of this
+plan rather than footnotes to it.
+
+**Palette does not outrank more data.** IC 63 goes `HaRGB` → `HSRGB` *because SII was added*, along
+with 8h 34m and eleven nights. "New palette" was meant to mean the same subs mapped differently — an
+interpretation. A palette label also moves when a new filter is acquired, and then it is describing
+acquisition. Reading it as reinterpretation left two rows in the log where the newer frame plainly
+supersedes the older. `moreData` is now checked first; the palette only decides when the data behind
+it did not move.
+
+**Plate scale is not a property of the rig.** This plan originally made scale authoritative because
+it is measured from the sky rather than typed by a person. It is also changed by *cropping*: export a
+tighter crop at the same pixel dimensions and arcsec/px moves while the telescope sits untouched.
+IC 63's two frames are **14.5% apart in plate scale with byte-identical optics and camera** — both
+masters 5983x3499, both solved on a 2048px derivative, so the numbers are directly comparable. Sh2-157's
+differ by 0.17%. Recorded optics now decide, and scale is only the fallback for frames that record
+none. A scale change under unchanged optics is reported as `reframed`, because it is why two
+revisions do not overlay.
+
+**Optical gear is compared as a set of values, not key=value pairs.** The same scope gets listed
+under "Optics" on one frame and "Telescope" on another. Comparing pairs turns that into a phantom rig
+change; comparing values still catches a genuinely different scope.
+
+> The survey itself was wrong for its first run. It re-implemented the derivation instead of calling
+> it, drifted from the real rule, and confidently reported Sh2-157 as a new rig when the app
+> classified it a reprocess. It now calls `classifyRevision` directly. A validation tool that answers
+> a different question than production is worse than none, because it is believed.
+
+### Gotchas (from synthetic pairs, before the production run)
 
 1. **Comparing `frame_gear` row sets is too brittle to lead the derivation.** Gear is a per-frame
    copy of the current rig, so it drifts for reasons that have nothing to do with changing equipment
@@ -90,30 +101,43 @@ A pure function of two frames and their related rows. No new authoring at import
 
 ### 2.1 Signals, in order of trustworthiness
 
+Revised after the production run — the first version of this table had the top two rows the wrong way
+round.
+
 | Signal | Source | Reads as |
 | --- | --- | --- |
-| plate scale | `plate_solves.pix_scale` | different optical train |
-| gear, optics/camera keys only | `frame_gear` | different rig (corroborating) |
-| palette / bandwidth | `frames` | different interpretation of the same data |
-| filter totals, night count, integration | `frame_filters`, `nights`, `frames` | more data |
+| optics/camera values | `frame_gear` | different rig |
+| plate scale | `plate_solves.pix_scale` | different rig **only when no optics are recorded**; otherwise a crop |
+| integration, night count, filter totals | `frames`, `nights`, `frame_filters` | more data |
+| palette / bandwidth | `frames` | different interpretation, **only if the data did not move** |
 | none of the above | — | reprocess |
 
 ### 2.2 The rule
 
 ```
-scaleChanged  = both solved && |pixScaleA - pixScaleB| / pixScaleA > 0.02
-rigChanged    = scaleChanged || (opticsOrCameraGearDiffers && bothFramesHaveGear)
-paletteChanged= palette or bandwidth differs
-moreData      = integration increased || night count increased || filter totals increased
+scaleChanged   = both solved && |pixScaleA - pixScaleB| / pixScaleA > 0.02
+gearChanged    = both record optics && the SET OF VALUES differs
+rigChanged     = bothRecordOptics ? gearChanged : scaleChanged
+paletteChanged = palette or bandwidth differs
+moreData       = integration increased || night count increased
 
-rigChanged     -> "new rig"     (accompanies)
-paletteChanged -> "new palette"  (accompanies)
+rigChanged     -> "new rig"      (accompanies)
 moreData       -> "more data"    (supersedes)
+paletteChanged -> "new palette"  (accompanies)
+filtersChanged -> "more data"    (supersedes)
 otherwise      -> "reprocess"    (supersedes)
 ```
 
-`bothFramesHaveGear` is the guard for gotcha 1: a frame with no gear rows tells you nothing, so it
-must not be read as "the rig changed". Scale, when available, outranks the gear text.
+Three things in that order are deliberate and each cost a wrong answer on real data:
+
+- **Optics before scale.** Cropping moves plate scale without touching the rig (IC 63, 14.5%).
+- **More data before palette.** A palette label follows a newly added filter (IC 63, `HaRGB` →
+  `HSRGB` because SII arrived).
+- **Values, not key=value pairs**, for the gear comparison, so a renamed key is not a rig change.
+
+A frame that records no optics is silence, never evidence — which is why the fallback is keyed on
+whether optics exist at all rather than on whether they differ. A scale change under unchanged optics
+is surfaced as `reframed` rather than dropped: it is why two revisions of one target do not overlay.
 
 ### 2.3 Chains
 

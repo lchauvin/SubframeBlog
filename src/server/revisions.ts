@@ -78,11 +78,16 @@ const isOpticalKey = (label: string) => {
 export const opticalGearOf = <T extends { keyLabel: string; value: string }>(rows: T[]): T[] =>
   rows.filter((r) => isOpticalKey(r.keyLabel));
 
+/**
+ * The set of optical *values*, ignoring which key each sat under.
+ *
+ * Keys drift where the equipment does not: the same scope gets listed as
+ * "Optics" on one frame and "Telescope" on another, or appears twice. Comparing
+ * key=value pairs turns that into a phantom rig change, while comparing the set
+ * of values still catches a genuinely different scope or camera.
+ */
 const gearSignature = (rows: { keyLabel: string; value: string }[]) =>
-  rows
-    .map((r) => `${r.keyLabel.trim().toLowerCase()}=${r.value.trim().toLowerCase()}`)
-    .sort()
-    .join("|");
+  [...new Set(rows.map((r) => r.value.trim().toLowerCase()).filter(Boolean))].sort().join("|");
 
 const filterSignature = (rows: { name: string; keptFrames: number; hours: number }[]) =>
   rows
@@ -135,9 +140,22 @@ export function classifyRevision(prev: RevisionInput, next: RevisionInput): Revi
   const bothHaveGear = prevGear.length > 0 && nextGear.length > 0;
   const gearChanged = bothHaveGear && prevGear !== nextGear;
 
-  // When the scale is known and unchanged, it overrules differing gear text:
-  // the optical train demonstrably did not change, whatever the labels say.
-  const rigChanged = scaleChanged || (gearChanged && !bothSolved);
+  /**
+   * Recorded optics decide; plate scale is only the fallback.
+   *
+   * Scale looked like the honest signal — measured from the sky rather than
+   * typed — but it is not a property of the rig alone. Cropping in processing
+   * and exporting at the same pixel dimensions changes arcsec/px while the
+   * telescope sits untouched. Production has exactly that: IC 63's two frames
+   * differ 14.5% in plate scale with byte-identical optics and camera, because
+   * the second is a tighter crop of the same field. Sh2-157's differ by 0.17%.
+   * Treating scale as authoritative called the crop a new rig and kept two rows
+   * in the log for one photograph.
+   *
+   * So where both frames record their optics, that is the answer; scale only
+   * speaks when they do not.
+   */
+  const rigChanged = bothHaveGear ? gearChanged : scaleChanged;
 
   const paletteChanged =
     prev.palette.trim().toLowerCase() !== next.palette.trim().toLowerCase() ||
@@ -153,6 +171,10 @@ export function classifyRevision(prev: RevisionInput, next: RevisionInput): Revi
         ? `${(prev.pixScale as number).toFixed(2)}″/px → ${(next.pixScale as number).toFixed(2)}″/px`
         : "different optics",
     );
+  } else if (scaleChanged) {
+    // Same rig, different sky per pixel: the frame was cropped or reframed in
+    // processing. Worth showing — it is why the two images do not overlay.
+    changes.push("reframed");
   }
   if (paletteChanged) {
     const a = [prev.palette, prev.bandwidth].filter(Boolean).join(" ");
@@ -168,13 +190,29 @@ export function classifyRevision(prev: RevisionInput, next: RevisionInput): Revi
     changes.push(`+${next.nightCount - prev.nightCount} night${next.nightCount - prev.nightCount === 1 ? "" : "s"}`);
   }
 
+  /**
+   * More data outranks a changed palette, which is the opposite of what the
+   * first version of this did.
+   *
+   * "New palette" means the same subs mapped differently — an interpretation
+   * rather than a correction, which is why it accompanies instead of
+   * superseding. But a palette label also changes when a *new filter* is
+   * added, and then it is describing acquisition, not interpretation. IC 63 in
+   * production is exactly that: HaRGB to HSRGB, because SII was added, along
+   * with 8h34m and eleven nights. Reading that as a reinterpretation left two
+   * rows in the log where the newer one plainly supersedes the older.
+   *
+   * So the palette only decides when the data behind it did not move.
+   */
   const derived: RevisionKind = rigChanged
     ? "new-rig"
-    : paletteChanged
-      ? "new-palette"
-      : moreData || filtersChanged
-        ? "more-data"
-        : "reprocess";
+    : moreData
+      ? "more-data"
+      : paletteChanged
+        ? "new-palette"
+        : filtersChanged
+          ? "more-data"
+          : "reprocess";
 
   const kind = override ?? derived;
   return {

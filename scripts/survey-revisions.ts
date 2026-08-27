@@ -25,6 +25,7 @@ import {
   plateSolves,
 } from "../src/server/db/schema";
 import { angularSeparation } from "../src/server/astrometry/wcs";
+import { classifyRevision, opticalGearOf, type RevisionInput } from "../src/server/revisions";
 
 /** Same threshold the sky atlas uses to call two footprints the same target. */
 const SAME_TARGET_DEG = 0.5;
@@ -44,6 +45,7 @@ type Row = {
   arcsecPerPx: number | null;
   ra: number | null;
   dec: number | null;
+  revisionKind: string;
 };
 
 function sameTarget(a: Row, b: Row): boolean {
@@ -55,6 +57,29 @@ function sameTarget(a: Row, b: Row): boolean {
 }
 
 const hours = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+
+/** The same shape `classifyRevision` sees in the app. */
+function makeInputOf(rows: Row[]) {
+  const solves = db.select().from(plateSolves).all();
+  return (frameId: number): RevisionInput => {
+    const row = rows.find((r) => r.id === frameId)!;
+    const solve = solves.find((s) => s.frameId === frameId && s.status === "solved");
+    return {
+      slug: row.slug,
+      capturedOn: row.capturedOn,
+      palette: row.palette,
+      bandwidth: row.bandwidth,
+      totalIntegrationMinutes: row.minutes,
+      pixScale: solve?.pixScale ?? null,
+      opticalGear: opticalGearOf(
+        db.select().from(frameGear).where(eq(frameGear.frameId, frameId)).all(),
+      ),
+      filters: db.select().from(frameFilters).where(eq(frameFilters.frameId, frameId)).all(),
+      nightCount: db.select().from(nights).where(eq(nights.frameId, frameId)).all().length,
+      revisionKind: row.revisionKind,
+    };
+  };
+}
 
 async function main() {
   const frameRows = db.select().from(frames).all();
@@ -75,6 +100,7 @@ async function main() {
       arcsecPerPx: f.arcsecPerPx,
       ra: solve?.centerRa ?? null,
       dec: solve?.centerDec ?? null,
+      revisionKind: f.revisionKind,
     };
   });
 
@@ -86,6 +112,7 @@ async function main() {
     else groups.push([row]);
   }
 
+  const inputOf = makeInputOf(rows);
   const multi = groups.filter((g) => g.length > 1);
   multi.forEach((g) =>
     g.sort((a, b) => (a.capturedOn < b.capturedOn ? -1 : a.capturedOn > b.capturedOn ? 1 : 0)),
@@ -130,57 +157,30 @@ async function main() {
       );
     }
 
-    // The derivation the plan proposes, applied to each consecutive pair.
+    // The production rule itself, not a restatement of it.
+    //
+    // This block used to re-implement the derivation, and drifted: it compared
+    // every gear row rather than the optical ones and never learned that plate
+    // scale outranks gear text, so it reported Sh2-157 as a new rig when the
+    // app classified it a reprocess. A survey that answers a different question
+    // than the site is worse than no survey, because it is believed.
     for (let i = 1; i < group.length; i++) {
       const prev = group[i - 1];
       const next = group[i];
-
-      const gearOf = (id: number) =>
-        db
-          .select()
-          .from(frameGear)
-          .where(eq(frameGear.frameId, id))
-          .all()
-          .map((g) => `${g.keyLabel}=${g.value}`)
-          .sort()
-          .join("|");
-      const filtersOf = (id: number) =>
-        db
-          .select()
-          .from(frameFilters)
-          .where(eq(frameFilters.frameId, id))
-          .all()
-          .map((f) => `${f.name}:${f.keptFrames}:${f.hours}`)
-          .sort()
-          .join("|");
-      const nightCount = (id: number) =>
-        db.select().from(nights).where(eq(nights.frameId, id)).all().length;
-
-      const gearChanged = gearOf(prev.id) !== gearOf(next.id);
-      const filtersChanged = filtersOf(prev.id) !== filtersOf(next.id);
-      const moreData = next.minutes > prev.minutes || nightCount(next.id) > nightCount(prev.id);
-      const paletteChanged =
-        prev.palette !== next.palette || prev.bandwidth !== next.bandwidth;
-      const scaleChanged =
-        prev.arcsecPerPx !== null &&
-        next.arcsecPerPx !== null &&
-        Math.abs(prev.arcsecPerPx - next.arcsecPerPx) / prev.arcsecPerPx > 0.02;
-
-      const kind = gearChanged || scaleChanged
-        ? "NEW RIG        (accompanies — keep both in the log)"
-        : paletteChanged
-          ? "NEW PALETTE    (accompanies — keep both in the log)"
-          : moreData || filtersChanged
-            ? "MORE DATA      (supersedes — collapse)"
-            : "REPROCESS      (supersedes — collapse)";
+      const verdict = classifyRevision(inputOf(prev.id), inputOf(next.id));
+      const disposition =
+        verdict.disposition === "supersedes"
+          ? "supersedes — collapses into one log row"
+          : "accompanies — both keep their row";
 
       console.log(
-        `\n  ${prev.slug} → ${next.slug}: ${kind}` +
-          `\n    gear ${gearChanged ? "differs" : "same"}` +
-          ` · filters ${filtersChanged ? "differ" : "same"}` +
-          ` · integration ${prev.minutes}→${next.minutes}min` +
-          ` · palette ${paletteChanged ? "differs" : "same"}` +
-          ` · scale ${scaleChanged ? "differs" : "same"}`,
+        `
+  ${prev.slug} → ${next.slug}: ${verdict.kind.toUpperCase()}` +
+          `${verdict.overridden ? " (author override)" : ""}` +
+          `
+    ${disposition}` +
+          (verdict.changes.length ? `
+    ${verdict.changes.join(" · ")}` : ""),
       );
     }
     console.log();
