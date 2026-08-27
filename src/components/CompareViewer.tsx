@@ -284,6 +284,25 @@ export function CompareViewer(props: CompareViewerProps) {
     return `polygon(${pts})`;
   }, [sharedOnly, props.overlap, props.alignment]);
 
+  /**
+   * The divider, converted from canvas space into the wrap's own.
+   *
+   * `split` is where the handle sits on screen, but the clip is applied to a
+   * layer *inside* the transform, so a percentage there means a percentage of
+   * the image — which is a different place entirely the moment the view is
+   * zoomed or panned. The comparison opens zoomed on the shared region, so it
+   * was never not zoomed: the reveal boundary sat far from the line the user
+   * was dragging, and at the extremes it left the frame altogether, so one
+   * image appeared to replace the other wholesale. Two frames swapping in full
+   * look exactly like two frames that will not register.
+   */
+  const splitInWrap = useMemo(() => {
+    if (base.w <= 0 || canvas.w <= 0) return split;
+    const screenX = (split / 100) * canvas.w - canvas.w / 2;
+    const localX = base.w / 2 + (screenX - view.x) / view.zoom;
+    return clamp((localX / base.w) * 100, 0, 100);
+  }, [split, base.w, canvas.w, view.x, view.zoom]);
+
   const rotationDeg = props.alignment ? (props.alignment.rotation * 180) / Math.PI : 0;
   const scalePct = props.alignment ? (props.alignment.scale - 1) * 100 : 0;
 
@@ -403,7 +422,8 @@ export function CompareViewer(props: CompareViewerProps) {
               className={styles.otherLayer}
               style={{
                 opacity: otherVisible ? 1 : 0,
-                clipPath: mode === "swipe" ? `inset(0 0 0 ${split}%)` : undefined,
+                clipPath:
+                  mode === "swipe" ? `inset(0 0 0 ${splitInWrap.toFixed(4)}%)` : undefined,
               }}
             >
               {otherStyle ? (
@@ -428,7 +448,33 @@ export function CompareViewer(props: CompareViewerProps) {
         </div>
 
         {mode === "swipe" ? (
-          <div className={styles.divider} style={{ left: `${split}%` }} aria-hidden="true">
+          <div
+            className={styles.divider}
+            style={{ left: `${split}%` }}
+            role="separator"
+            aria-label="Drag to compare"
+            aria-valuenow={Math.round(split)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            tabIndex={0}
+            onPointerDown={(e) => {
+              // Its own target, so grabbing it never falls through to a pan.
+              // Proximity hit-testing missed often enough that a drag meant to
+              // swipe silently moved the image instead, which made two
+              // screenshots of the same comparison disagree.
+              e.stopPropagation();
+              (e.target as Element).setPointerCapture?.(e.pointerId);
+              setDragging("split");
+            }}
+            onPointerMove={(e) => {
+              if (dragging === "split") setSplit(splitFromEvent(e.clientX));
+            }}
+            onPointerUp={onPointerUp}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") setSplit((v) => clamp(v - 2, 0, 100));
+              else if (e.key === "ArrowRight") setSplit((v) => clamp(v + 2, 0, 100));
+            }}
+          >
             <span className={styles.dividerHandle} />
           </div>
         ) : null}

@@ -146,7 +146,20 @@
   bottom: 0;
   width: 1px;
   background: var(--color-accent);
-  pointer-events: none;
+  /* A real drag target: a 1px line is impossible to grab, so the hit area is
+     widened with a transparent border-box rather than left to proximity
+     guessing against the canvas. */
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  margin-left: -14px;
+  background-clip: padding-box;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.divider:focus-visible {
+  outline: 2px solid var(--color-accent-400);
+  outline-offset: 2px;
 }
 
 .dividerHandle {
