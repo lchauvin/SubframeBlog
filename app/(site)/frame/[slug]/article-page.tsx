@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -126,6 +127,12 @@ async function renderArticlePage({
 
   const viewerImages = pickImage(frame.images, "article");
 
+  // The frosted ground behind the constellation card. The article variant
+  // rather than the thumbnail: the wash is only lightly blurred now, so its
+  // resolution shows, and this is the same file the page has already loaded
+  // for the photograph above.
+  const skyBackdrop = viewerImages.jpeg?.src ?? viewerImages.webp?.src ?? null;
+
   // The caption names the figure that was drawn, which is not always what the
   // plate says: a plate reading "Cygnus / Lacerta border" gets a Cygnus card.
   const skyCardConstellation = drawnConstellationName(frame.plateConstellation);
@@ -216,7 +223,14 @@ async function renderArticlePage({
           {skyCard ? (
             <>
               <div className={styles.equipmentLabel}>Where in the sky</div>
-              <figure className={styles.skyCard}>
+              <figure
+                className={styles.skyCard}
+                style={
+                  skyBackdrop
+                    ? ({ "--sky-backdrop": `url(${skyBackdrop})` } as CSSProperties)
+                    : undefined
+                }
+              >
                 {/* Two layers, because the figure is also used away from the
                     site and must stay free of ruling. They are drawn from one
                     projection pass, so stacking them re-registers exactly. */}

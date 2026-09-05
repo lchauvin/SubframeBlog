@@ -205,12 +205,17 @@
 /* The card is drawn white on a transparent ground, so it has to sit on
    something dark to be visible at all — on paper it is white on white.
 
-   A gradient rather than the flat photo mount, because this ground is the
-   only sky the card gets and a flat field made it read as a diagram on a
-   black rectangle. Both stops are mixed out of the accent ramp's dark end
-   into the mount itself, so nothing new enters the palette and the corners
-   still land on exactly the near-black the photographs sit on. */
+   Three layers. The base is the mount and a radial gradient, which is what
+   shows if the frame has no image; over it a lightly blurred greyscale wash
+   of the frame's own photograph, so the card is frosted over the very thing
+   it is describing; and over that a veil holding the result down to the
+   palette. Every colour is mixed out of the accent ramp's dark end into the
+   mount, so nothing new enters the palette and the corners still land on the
+   near-black the photographs sit on. */
 .skyCard {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   margin: 0;
   border: 1px solid var(--color-divider);
   padding: 10px;
@@ -225,12 +230,54 @@
   );
 }
 
+/* The wash. `--sky-backdrop` is set per frame and is absent when the frame
+   has no image, in which case this layer draws nothing and the gradient
+   above is what you see.
+
+   Greyscale, not merely desaturated: at this little blur an H-alpha target
+   would otherwise put a red field behind a red marker, and would make one
+   frame's card look unrelated to the next. Stripped of colour the wash is
+   structure only, which is the part worth keeping, and the marker becomes
+   the one coloured thing on the panel.
+
+   Bled past every edge, because a blur samples beyond its own box and would
+   otherwise fade along the borders. */
+.skyCard::before {
+  content: "";
+  position: absolute;
+  inset: -3%;
+  z-index: 0;
+  background-image: var(--sky-backdrop, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(1px) grayscale(1);
+}
+
+/* The veil that keeps the figure legible over whatever the photograph
+   happens to be doing, and tints the greys back toward the palette. */
+.skyCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-color: color-mix(in srgb, var(--mount) 60%, transparent);
+  background-image: radial-gradient(
+    at 50% 42%,
+    color-mix(in srgb, var(--color-accent-900) 55%, transparent) 0%,
+    color-mix(in srgb, var(--mount) 72%, transparent) 100%
+  );
+}
+
+/* Above both washes. */
+.skyCardStack,
+.skyCardCaption {
+  position: relative;
+  z-index: 2;
+}
+
 /* The figure sets the height; the ruling is laid over the same box behind
    it. Both files are the same pixel size and share one projection, so no
    alignment maths is needed here — only that they occupy the same rect. */
-.skyCardStack {
-  position: relative;
-}
 
 .skyCardImage {
   display: block;
