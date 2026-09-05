@@ -40,6 +40,7 @@ so it stays out of shell history).
 | `npm run build:catalog` | Rebuilds `catalog/deep-sky.json` from OpenNGC + VizieR. Only needed to refresh the data |
 | `npm run solve -- <slug>` | Plate-solves one frame (`--all` for every frame) |
 | `npm run solve -- --reannotate <slug>` | Regenerates markers from a solve that already happened — no upload, no API key |
+| `npm run cards:constellation` | Renders the constellation cards into `<data dir>/media/cards/` — two text-free graphics per published frame, white on a transparent ground: `<slug>.png` is the constellation figure and the red target marker, `<slug>-grid.png` is the RA/Dec ruling, labelled in hours and degrees — the only text in the set, drawn from the font in `assets/fonts` rather than from anything installed on the host. Both come from one projection pass, so the article can stack them while the figure stays clean for use elsewhere. Each article shows its card under "Where in the sky"; a frame with no card just omits the panel. Nothing regenerates them on upload, so **re-run after publishing a frame**. Also a button under Admin → Diagnostics, which is the only way to run it on a host without `tsx`. `--slug <slug>` for one frame, `--out <dir>` to write elsewhere |
 | `npm run verify:deploy` | Typecheck, astrometry/runtime checks, production build and server health smoke test |
 
 **Do not run `npm run build` while `npm run dev` is running** — they share

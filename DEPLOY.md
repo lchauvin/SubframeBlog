@@ -53,6 +53,15 @@ Hostinger installs dependencies and starts the Next.js server. `sharp` and
 `better-sqlite3` are native packages, so check the first build and runtime logs
 for native-module errors.
 
+`assets/fonts` must reach the server as well. The constellation cards draw
+their grid labels into a PNG through librsvg, which finds fonts through
+fontconfig — so on a host with no fonts installed, and Hostinger's Node
+images have none, the labels render as nothing at all while the rest of the
+card draws normally. The app therefore ships its own font and points
+fontconfig at it; `npm run package:hostinger` refuses to build a ZIP without
+it. If the directory ever does go missing, cards come out with a bare grid
+and the Diagnostics panel says why.
+
 ## 4. Set environment variables
 
 Add these in hPanel's deployment settings:

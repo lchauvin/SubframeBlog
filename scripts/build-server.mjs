@@ -58,6 +58,12 @@ await Promise.all([
     recursive: true,
     force: true,
   }),
+  // The card labels are rendered from this font, not from whatever the host
+  // happens to have installed — which, on a bare Node host, is nothing.
+  fs.cp(path.join(root, "assets"), path.join(standalone, "assets"), {
+    recursive: true,
+    force: true,
+  }),
   fs.cp(path.join(root, ".next", "static"), path.join(standalone, ".next", "static"), {
     recursive: true,
     force: true,

@@ -23,6 +23,13 @@ import {
   siteSettings,
   siteStats,
 } from "@/server/db/schema";
+import {
+  buildConstellationCards,
+  constellationCardStatus,
+  type CardOutcome,
+  type CardRun,
+  type CardStatus,
+} from "@/server/cards/constellation";
 import { nextRevisionSlug, slugExists } from "@/server/db/queries";
 import {
   deleteFrameMedia,
@@ -485,4 +492,36 @@ export async function rederiveFrameAction(frameId: number): Promise<RederiveResu
       message: error instanceof Error ? error.message : "Unknown error.",
     };
   }
+}
+
+/* ----------------------------------------------------- constellation cards */
+
+export type ConstellationCardOutcome = CardOutcome;
+export type ConstellationCardsRun = CardRun;
+export type ConstellationCardStatus = CardStatus;
+
+/**
+ * Regenerates the constellation card for every published frame.
+ *
+ * The whole log in one call, unlike `rederiveFrameAction` above. That one is
+ * driven frame by frame from the browser because each frame is seconds of
+ * sharp on a 21 MP master; a card is one small SVG rasterised once, so the
+ * entire log finishes well inside a single request and splitting it would only
+ * make the author click more.
+ *
+ * This is the production counterpart to `npm run cards:constellation`: that
+ * script runs through `tsx`, a devDependency shared hosting may not install,
+ * so without this the cards could only ever be built on a dev machine.
+ */
+export async function generateConstellationCardsAction(): Promise<ConstellationCardsRun> {
+  await requireAdmin();
+  // No revalidatePath: nothing serves these files, so there is no page cache
+  // to bust. The caller refreshes once to pick up the new counts.
+  return buildConstellationCards();
+}
+
+/** What the cards directory holds, for the diagnostics panel. */
+export async function constellationCardStatusAction(): Promise<ConstellationCardStatus> {
+  await requireAdmin();
+  return constellationCardStatus();
 }

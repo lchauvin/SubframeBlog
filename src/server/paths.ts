@@ -13,6 +13,17 @@ export const DATA_ROOT = process.env.ASTROBLOG_DATA_DIR
 export const DB_PATH = path.join(DATA_ROOT, "astroblog.db");
 export const MEDIA_ROOT = path.join(DATA_ROOT, "media");
 export const BACKUP_ROOT = path.join(DATA_ROOT, "backups");
+/**
+ * Generated constellation cards.
+ *
+ * Inside the media root rather than beside it, because the article pages show
+ * them: everything under here is already served by the media route, copied
+ * into the static export and covered by a media backup, so putting the cards
+ * anywhere else would mean duplicating all three.
+ */
+export const CARDS_ROOT = path.join(MEDIA_ROOT, "cards");
+/** The cards' path relative to the media root, which is what a URL is built from. */
+export const CARDS_MEDIA_PREFIX = "cards";
 
 export function isDataRootInsideDeployTree(): boolean {
   const relative = path.relative(path.resolve(process.cwd()), path.resolve(DATA_ROOT));
@@ -37,6 +48,7 @@ export async function ensureDataLayout(): Promise<void> {
     fs.mkdir(DATA_ROOT, { recursive: true }),
     fs.mkdir(MEDIA_ROOT, { recursive: true }),
     fs.mkdir(BACKUP_ROOT, { recursive: true }),
+    fs.mkdir(CARDS_ROOT, { recursive: true }),
   ]);
 
   const probe = path.join(DATA_ROOT, `.write-test-${process.pid}`);

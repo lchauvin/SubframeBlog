@@ -30,7 +30,8 @@
     "build:catalog": "node --conditions react-server --import tsx scripts/build-catalog.ts",
     "solve": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --conditions react-server --import tsx scripts/solve-frame.ts",
     "admin:password": "node --conditions react-server --import tsx scripts/admin-password.ts",
-    "verify:deploy": "npm run typecheck && npm run check:astrometry && npm run check:atlas && npm run check:search && npm run check:tiles && npm run check:revisions && npm run check:deploy && npm run export && npm run build && npm run check:server"
+    "verify:deploy": "npm run typecheck && npm run check:astrometry && npm run check:atlas && npm run check:search && npm run check:tiles && npm run check:revisions && npm run check:deploy && npm run export && npm run build && npm run check:server",
+    "cards:constellation": "node --conditions react-server --import tsx scripts/build-constellation-cards.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.0",

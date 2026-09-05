@@ -3,6 +3,11 @@ import path from "node:path";
 import { inArray } from "drizzle-orm";
 
 import { isConfigured } from "@/server/astrometry/client";
+import {
+  constellationCardStatus,
+  CARD_HEIGHT,
+  CARD_WIDTH,
+} from "@/server/cards/constellation";
 import { getDb } from "@/server/db/client";
 import { plateSolves } from "@/server/db/schema";
 import { checkReadiness } from "@/server/health";
@@ -14,6 +19,7 @@ import {
   isDataRootInsideDeployTree,
 } from "@/server/paths";
 
+import { ConstellationCards } from "./ConstellationCards";
 import { MediaRederive } from "./MediaRederive";
 
 import styles from "../../admin.module.css";
@@ -50,7 +56,7 @@ async function directoryUsage(dir: string): Promise<{ files: number; bytes: numb
 const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 export default async function DiagnosticsPage() {
-  const [readiness, dbBytes, media, pending, mediaStatus] = await Promise.all([
+  const [readiness, dbBytes, media, pending, mediaStatus, cardStatus] = await Promise.all([
     checkReadiness(),
     fileSize(DB_PATH),
     directoryUsage(MEDIA_ROOT),
@@ -59,6 +65,7 @@ export default async function DiagnosticsPage() {
       .from(plateSolves)
       .where(inArray(plateSolves.status, ["queued", "solving"])),
     listMediaStatus(),
+    constellationCardStatus(),
   ]);
 
   const staleMedia = mediaStatus.filter((f) => f.stale).length;
@@ -73,6 +80,12 @@ export default async function DiagnosticsPage() {
     [
       "Derivatives behind the pipeline",
       staleMedia === 0 ? "None" : `${staleMedia} of ${mediaStatus.length} frames`,
+    ],
+    [
+      "Constellation cards",
+      cardStatus.present === 0
+        ? "None generated"
+        : `${cardStatus.present} of ${cardStatus.frames} targets`,
     ],
     ["Astrometry.net", isConfigured() ? "Configured" : "Not configured"],
   ];
@@ -107,6 +120,8 @@ export default async function DiagnosticsPage() {
       </section>
 
       <MediaRederive frames={mediaStatus} />
+
+      <ConstellationCards status={cardStatus} width={CARD_WIDTH} height={CARD_HEIGHT} />
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>SQLite snapshot</h2>

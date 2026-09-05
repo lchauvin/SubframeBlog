@@ -16,6 +16,7 @@ import {
 } from "@/lib/format";
 import { shareMetadata, siteOrigin } from "@/lib/share-meta";
 import { getCurrentAdmin } from "@/server/auth/session";
+import { drawnConstellationName, findConstellationCard } from "@/server/cards/constellation";
 import { KIND_LABEL } from "@/server/revisions";
 import {
   getAdjacentFrames,
@@ -88,10 +89,13 @@ async function renderArticlePage({
     if (!(await getCurrentAdmin())) notFound();
   }
 
-  const [adjacent, siteGear, chain] = await Promise.all([
+  const [adjacent, siteGear, chain, skyCard] = await Promise.all([
     getAdjacentFrames(frame.id),
     getGearItems(),
     getRevisionChain(frame.id),
+    // Null until someone generates the cards from the admin, which is why the
+    // panel below is conditional rather than a placeholder.
+    findConstellationCard(frame.slug),
   ]);
   const gear = publicGearRows(frame.gear, siteGear);
 
@@ -121,6 +125,10 @@ async function renderArticlePage({
   }));
 
   const viewerImages = pickImage(frame.images, "article");
+
+  // The caption names the figure that was drawn, which is not always what the
+  // plate says: a plate reading "Cygnus / Lacerta border" gets a Cygnus card.
+  const skyCardConstellation = drawnConstellationName(frame.plateConstellation);
 
   return (
     <main className={styles.page}>
@@ -204,6 +212,52 @@ async function renderArticlePage({
 
         <div className={styles.data}>
           <AcquisitionPanel bars={bars} mix={mix} nights={nightRows} />
+
+          {skyCard ? (
+            <>
+              <div className={styles.equipmentLabel}>Where in the sky</div>
+              <figure className={styles.skyCard}>
+                {/* Two layers, because the figure is also used away from the
+                    site and must stay free of ruling. They are drawn from one
+                    projection pass, so stacking them re-registers exactly. */}
+                <div className={styles.skyCardStack}>
+                  {skyCard.gridSrc ? (
+                    // Decorative: the figure below carries the description.
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={skyCard.gridSrc}
+                      width={skyCard.width}
+                      height={skyCard.height}
+                      alt=""
+                      aria-hidden
+                      className={styles.skyCardGrid}
+                      loading="lazy"
+                    />
+                  ) : null}
+                  {/* Plain <img>, as everywhere else on the site: the card is
+                      already the size it is drawn at and needs no pyramid. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={skyCard.src}
+                    width={skyCard.width}
+                    height={skyCard.height}
+                    alt={
+                      skyCardConstellation
+                        ? `${frame.catalogId} marked on the ${skyCardConstellation} figure`
+                        : `${frame.catalogId} marked on its constellation figure`
+                    }
+                    className={styles.skyCardImage}
+                    loading="lazy"
+                  />
+                </div>
+                {skyCardConstellation ? (
+                  <figcaption className={styles.skyCardCaption}>
+                    {skyCardConstellation}
+                  </figcaption>
+                ) : null}
+              </figure>
+            </>
+          ) : null}
 
           {gear.length > 0 ? (
             <>
